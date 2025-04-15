@@ -17,15 +17,15 @@ def huggingface_forward(forward):
             self, hidden_states, hidden_states,
             position_ids, use_cache, past_key_value,
             self.q_proj, self.k_proj, self.v_proj, self.o_proj, 
-            self.head_dim, self.num_heads, self.num_key_value_heads
+            self.head_dim, self.config.num_attention_heads, self.config.num_key_value_heads
         )
         if use_cache:
             o, pkv = ret
         else:
             o = ret
             pkv = None
-
-        return o, None, pkv
+        
+        return o, None, pkv # TODO: should this return 2 instead and use pkv as DynamicCache as in modeling_llama.py 530? Should we be patching different forward method since we are specifically looking at decode layer?
 
     return hf_forward
 
@@ -149,15 +149,21 @@ def patch_hf(
     else:
         raise ValueError("Only supports llama, mistral and qwen2 models.")
 
-    hf_rope = model.model.layers[0].self_attn.rotary_emb 
-    base = base if base is not None else hf_rope.base
+    # hf_rope = model.model.layers[0].self_attn.rotary_emb 
+    hf_rope = model.model.rotary_emb
+    config = hf_rope.config
+
+    base = base if base is not None else config.rope_theta
+    partial_rotary_factor = config.partial_rotary_factor if hasattr(config, "partial_rotary_factor") else 1.0
+    head_dim = getattr(config, "head_dim", config.hidden_size // config.num_attention_heads)
+    dim = int(head_dim * partial_rotary_factor)
     distance_scale = distance_scale if distance_scale is not None else 1.0
     rope = RotaryEmbeddingESM(
-        hf_rope.dim,
+        dim,
         base,
         distance_scale
     )
-    model.model.position_bias = rope
+    model.model.position_bias = rope # TODO: investigate if this should be on the model if we are making it here (position_ids)
 
     def set_forward(m):
         if isinstance(m, Attention):

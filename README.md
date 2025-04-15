@@ -37,6 +37,14 @@ jieba==0.42.1
 
 ## Usage
 
+### Environment Setup
+Run the following command to set up the environment.
+```bash
+source setup.sh
+```
+
+Then you can run `huggingface-cli login` to login your huggingface account.
+
 ### Configuration
 
 We use YAML files for configuration, and you can see the configuration files we use for benchmark in the `config/` directory. 
