@@ -143,8 +143,10 @@ We integrated fastchat's CLI chat.
 
 ```
 python -m inf_llm.chat \
-    --model-path mistralai/Mistral-7B-Instruct-v0.2 \
-    --inf-llm-config-path config/mistral-inf-llm.yaml
+    --model-path Qwen/Qwen1.5-4B-Chat \
+    --inf-llm-config-path config/qwen-4b-inf-llm.yaml \
+    --num-gpus 4 \
+    --max-gpu-memory 10GiB
 ```
 
 ## Citation

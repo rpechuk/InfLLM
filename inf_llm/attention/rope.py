@@ -20,7 +20,7 @@ class RotaryEmbeddingESM(torch.nn.Module):
 
         # Generate and save the inverse frequency buffer (non trainable)
         inv_freq = 1.0 / (
-            base ** (torch.arange(0, dim, 2, device="cuda", dtype=torch.float32) / dim)
+            base ** (torch.arange(0, dim, 2, dtype=torch.float32) / dim)
         )
         self.register_buffer("inv_freq", inv_freq, persistent=False)
 
@@ -43,6 +43,9 @@ class RotaryEmbeddingESM(torch.nn.Module):
         elif  cos.dim() == 4:
             cos = cos[:, :, right-length:right, :]
             sin = sin[:, :, right-length:right, :]
+
+        cos = cos.to(x.device)
+        sin = sin.to(x.device)
             
         return ((x.float() * cos) + (self.rotate_half(x).float() * sin)).to(dtype)
 
@@ -50,8 +53,9 @@ class RotaryEmbeddingESM(torch.nn.Module):
         seq_len = x.size(seq_dim)
         if seq_len > self._seq_len_cached:
             self._seq_len_cached = seq_len
-            t = torch.arange(seq_len, device = x.device).type_as(self.inv_freq)
-            freqs = torch.outer(t * self.distance_scale, self.inv_freq)
+            t = torch.arange(seq_len, device=x.device, dtype=torch.float32)
+            inv_freq = self.inv_freq.to(x.device)
+            freqs = torch.outer(t * self.distance_scale, inv_freq)
             emb = torch.cat((freqs, freqs), dim = -1)
             if x.dim() == 2:
                 self._cos_cached = emb.cos()
@@ -71,8 +75,9 @@ class RotaryEmbeddingESM(torch.nn.Module):
                 dim = self._cos_cached.dim()
 
             self._seq_len_cached = seq_len
-            t = torch.arange(seq_len, device = device).type_as(self.inv_freq)
-            freqs = torch.outer(t * self.distance_scale, self.inv_freq)
+            t = torch.arange(seq_len, device=device, dtype=torch.float32)
+            inv_freq = self.inv_freq.to(device)
+            freqs = torch.outer(t * self.distance_scale, inv_freq)
             emb = torch.cat((freqs, freqs), dim = -1)
             if dim == 2:
                 self._cos_cached = emb.cos()
@@ -100,7 +105,10 @@ class RotaryEmbeddingESM(torch.nn.Module):
         elif  cos.dim() == 4:
             cos = cos[:, :, index-1:index, :]
             sin = sin[:, :, index-1:index, :]
-            
+
+        cos = cos.to(x.device)
+        sin = sin.to(x.device)
+
         return ((x.float() * cos) + (self.rotate_half(x).float() * sin)).to(dtype)
 
 

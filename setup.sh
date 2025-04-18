@@ -43,7 +43,7 @@
         uv pip install -r <(uv pip compile pyproject.toml)
     elif [ -f "requirements.txt" ]; then
         echo "📥 Installing dependencies from requirements.txt"
-        uv pip install -r requirements.txt
+        uv pip install --no-cache-dir -r requirements.txt
     else
         echo "⚠️ No pyproject.toml or requirements.txt found. Skipping dependency installation."
     fi
