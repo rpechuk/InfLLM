@@ -2,6 +2,7 @@ import torch
 from typing import Optional, Tuple
 from copy import deepcopy
 from .dot_production_attention import get_multi_stage_dot_production_attention
+from .context_manager_listener import GlobalCacheListener
 
 class CudaCache:
     def __init__(self, num_units, unit_size, dtype):
@@ -205,7 +206,8 @@ class ContextManager:
                  async_global_stream: bool = False,
                  pin_memory: bool = False,
                  faiss: bool = False,
-                 perhead: bool = False
+                 perhead: bool = False,
+                 listeners: Optional[list[GlobalCacheListener]] = None,
     ):
 
         self.length = 0
@@ -229,6 +231,7 @@ class ContextManager:
         self.pin_memory = pin_memory
         self.faiss = faiss
         self.perhead = perhead
+        self._listeners: list[GlobalCacheListener] = listeners or []
 
         global GLOBAL_STREAM
         if self.async_global_stream and GLOBAL_STREAM is None:
@@ -242,7 +245,12 @@ class ContextManager:
         else:
             self.calc_block_score = False
 
-        
+        self._listeners: list[GlobalCacheListener] = listeners or []
+    
+    def _emit(self, event: str, unit: int, block: int, **kw) -> None:
+        for cb in self._listeners:
+            cb(event, unit, block, **kw)
+
     def remove_lru_blocks(self, u, num_remove: Optional[int] = None, ignore_blocks = None):
         if num_remove is None:
             num_remove = len(self.cached_blocks[u]) - self.max_cached_block
@@ -260,6 +268,7 @@ class ContextManager:
                 self.global_blocks[u][idx].offload()
                 self.cached_blocks[u].pop(idx)
                 removed += 1
+                self._emit('evict', u, idx)
 
             if removed >= num_remove:
                 return
@@ -417,6 +426,7 @@ class ContextManager:
                 
                 assert b_idx in self.cached_blocks[u]
                 self.global_blocks[u][b_idx].load((global_h_k[u, :, st:ed, :], global_h_v[u, :, st:ed, :]))
+                self._emit('load', u, b_idx)
 
              
         init_st = block_num * self.block_size
@@ -673,6 +683,7 @@ class ContextManager:
             self.num_global_block += 1
             for u in range(self.num_units):
                 self.block_k[u].append(global_block_k[u])
+                self._emit('add', u, self.num_global_block)
             global_remainder_st += self.block_size
 
         self._global_remainder_ed = global_remainder_ed

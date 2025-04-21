@@ -1,6 +1,9 @@
 import torch
 from typing import Optional
 from .context_manager import ContextManager
+from .context_manager_listener import file_listener
+
+DEBUG = True
 
 def inf_llm_forward(
     n_local, n_init, topk, 
@@ -54,7 +57,8 @@ def inf_llm_forward(
                 async_global_stream,
                 pin_memory,
                 faiss,
-                perhead
+                perhead,
+                listeners=[file_listener('cache.log', f'Attn{self.layer_idx}')] if DEBUG else None,
             )
 
 
