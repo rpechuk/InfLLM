@@ -4,7 +4,7 @@
 
     # Config
     UV_VERSION="latest" # You can pin to a version like "0.1.29"
-    VENV_DIR=".venv"
+    VENV_DIR="/storage/InfLLM/.venv"
 
     # Function to check if uv is installed
     has_uv() {
@@ -49,7 +49,7 @@
     fi
 
     # Add environment activation and variables to .bashrc if not already present
-    ACTIVATE_LINE="source $(pwd)/$VENV_DIR/bin/activate"
+    ACTIVATE_LINE="source $VENV_DIR/bin/activate"
     HF_HOME_LINE="export HF_HOME=/storage/hf_home"
     HF_TOKEN_LINE="export HF_TOKEN_PATH=~/.huggingface/token"
 
