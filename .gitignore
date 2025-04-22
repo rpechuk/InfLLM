@@ -3,3 +3,4 @@ __pycache__
 benchmark/data
 .venv
 .env
+cache.log

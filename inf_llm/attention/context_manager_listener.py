@@ -3,10 +3,10 @@ from time import perf_counter
 
 class GlobalCacheListener(Protocol):
     """
-    event      – 'add' | 'load' | 'evict'
-    unit_id    – batch index  (0‑based, size = num_units)
-    block_id   – global block index  (0‑based, monotonically increasing)
-    extra      – anything else you feel like emitting (length, timestamp …)
+    event     - 'add' | 'load' | 'evict'
+    unit_id   - batch index  (0-based, size = num_units)
+    block_id  - global block index  (0-based, monotonically increasing)
+    extra     - anything else you feel like emitting (length, timestamp …)
     """
     def __call__(self,
                  event: str,
