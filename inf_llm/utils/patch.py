@@ -72,10 +72,17 @@ def patch_hf(
             raise ValueError("You cannot specify both decoder_input_ids and decoder_inputs_embeds at the same time")
         elif input_ids is not None:
             batch_size, seq_length = input_ids.shape
+            if hasattr(model, 'input_ids'):
+                # append current input_ids to model.input_ids
+                model.input_ids = torch.cat([model.input_ids, input_ids], dim=1)
+            else:
+                # set model.input_ids to input_ids
+                model.input_ids = input_ids
         elif inputs_embeds is not None:
             batch_size, seq_length, _ = inputs_embeds.shape
         else:
             raise ValueError("You have to specify either decoder_input_ids or decoder_inputs_embeds")
+
 
         if inputs_embeds is None:
             inputs_embeds = self.embed_tokens(input_ids)
@@ -87,7 +94,7 @@ def patch_hf(
 
         else:
             pkv = None
-            
+
 
         hidden_states = inputs_embeds
 
@@ -132,7 +139,7 @@ def patch_hf(
             attentions=all_self_attns,
         )
 
-    forward = huggingface_forward(ATTN_FORWRAD[attn_type](**attn_kwargs))
+    forward = huggingface_forward(ATTN_FORWRAD[attn_type](**attn_kwargs, model=model))
 
     if isinstance(model, LlamaForCausalLM):
         Attention = model.model.layers[0].self_attn.__class__

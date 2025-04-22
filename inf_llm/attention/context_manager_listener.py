@@ -14,11 +14,38 @@ class GlobalCacheListener(Protocol):
                  block_id: int,
                  **extra: Any) -> None: ...
 
-def file_listener(filename: str, uuid: str) -> GlobalCacheListener:
+def file_listener(filename: str, model) -> GlobalCacheListener:
     """
     Returns a listener that writes to the given file as efficiently as possible.
     """
-    def _listener(event: str, unit: int, block: int, **_):
+    try:
+        with open(filename, 'w') as f:
+            pass
+    except FileNotFoundError:
+        pass
+
+    def _decode(input_ids: list[int]) -> str:
+        return model.tokenizer.decode(input_ids,
+                skip_special_tokens=True,
+                spaces_between_special_tokens=False,
+                clean_up_tokenization_spaces=True)
+
+    def _listener(event: str, **kwargs: Any) -> None:
         with open(filename, 'a') as f:
-            f.write(f"[{perf_counter():.3f}] <{uuid}> u{unit:02d} {event:>5} block {block}\n")
+            if event == 'add':
+                f.write(f"[{perf_counter():.3f}] u{kwargs['unit_id']:02d} {event:>5} block {kwargs['block_id']}\n")
+            elif event == 'load':
+                f.write(f"[{perf_counter():.3f}] u{kwargs['unit_id']:02d} {event:>5} block {kwargs['block_id']}\n")
+            elif event == 'evict':
+                f.write(f"[{perf_counter():.3f}] u{kwargs['unit_id']:02d} {event:>5} block {kwargs['block_id']}\n")
+            elif event == 'topk':
+                f.write(f"[{perf_counter():.3f}] u{kwargs['unit_id']:02d} {event:>5}\n")
+                f.write(f"  ret={kwargs['ret']}\n")
+            else:
+                raise ValueError(f"Unknown event: {event}")
+        
+            if 'block_start' in kwargs and 'block_end' in kwargs:
+                f.write(f"  block_contents={_decode(model.input_ids.tolist()[0][kwargs['block_start']:kwargs['block_end']])}\n")
+
     return _listener
+    

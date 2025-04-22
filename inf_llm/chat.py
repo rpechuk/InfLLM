@@ -343,6 +343,8 @@ def chat_loop(
         revision=revision,
         debug=debug,
     )
+    model.tokenizer = tokenizer
+
     if inf_llm_config is not None:
         model = patch_hf(model, inf_llm_config.type,  **inf_llm_config)
     generate_stream_func = generate_stream

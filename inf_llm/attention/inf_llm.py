@@ -17,6 +17,7 @@ def inf_llm_forward(
     pin_memory=False,
     faiss=False,
     perhead=False,
+    model=None,
     *args, **kwargs
 ):
 
@@ -58,9 +59,8 @@ def inf_llm_forward(
                 pin_memory,
                 faiss,
                 perhead,
-                listeners=[file_listener('cache.log', f'Attn{self.layer_idx}')] if DEBUG else None,
-            )
-
+                listeners=[file_listener(f'logs/cache{self.layer_idx}.log', model)] if DEBUG else None,
+            )            
 
         local_q, local_k, local_v = h_q, h_k, h_v
         global_q, global_k, global_v = h_q, h_k, h_v

@@ -159,6 +159,7 @@ class VectorTensor:
 
     def get_topk(self, tensor: torch.Tensor, topk): # inner product
         assert tensor.dim() == 1 and tensor.size(0) == self.hidden_size
+        tensor = tensor.to(self.data.device)
         logits = torch.matmul(self.data[:self.length], tensor[:, None]).squeeze(dim=-1)
         assert logits.dim() == 1 and logits.size(0) == self.length
         return logits.topk(topk, dim=0).indices.cpu().tolist()
@@ -247,9 +248,9 @@ class ContextManager:
 
         self._listeners: list[GlobalCacheListener] = listeners or []
     
-    def _emit(self, event: str, unit: int, block: int, **kw) -> None:
+    def _emit(self, event: str, **kw) -> None:
         for cb in self._listeners:
-            cb(event, unit, block, **kw)
+            cb(event, **kw)
 
     def remove_lru_blocks(self, u, num_remove: Optional[int] = None, ignore_blocks = None):
         if num_remove is None:
@@ -268,7 +269,11 @@ class ContextManager:
                 self.global_blocks[u][idx].offload()
                 self.cached_blocks[u].pop(idx)
                 removed += 1
-                self._emit('evict', u, idx)
+                self._emit(
+                    'evict',
+                    unit_id=u,
+                    block_id=idx
+                )
 
             if removed >= num_remove:
                 return
@@ -385,6 +390,11 @@ class ContextManager:
             ret = []
             for u in range(self.num_units):
                 ret.append(self.block_k[u].get_topk(global_h_q[u], self.topk))
+                self._emit(
+                    'topk',
+                    unit_id=u,
+                    ret=ret[-1]
+                )
 
         else:
             return self._cached_topk[self._topk_cur]
@@ -426,7 +436,13 @@ class ContextManager:
                 
                 assert b_idx in self.cached_blocks[u]
                 self.global_blocks[u][b_idx].load((global_h_k[u, :, st:ed, :], global_h_v[u, :, st:ed, :]))
-                self._emit('load', u, b_idx)
+                self._emit(
+                    'load',
+                    unit_id=u,
+                    block_id=b_idx,
+                    block_start=st,
+                    block_end=ed
+                )
 
              
         init_st = block_num * self.block_size
@@ -565,6 +581,11 @@ class ContextManager:
                 ret.append(
                     [list(range(len(self.global_blocks[0]))) for _ in range(self.num_units)]
                 )
+                self._emit(
+                    'topk',
+                    unit_id=0,
+                    ret=ret[-1]
+                )
             return ret
 
 
@@ -618,7 +639,11 @@ class ContextManager:
 
             ret.append(tmp)
 
-         
+        self._emit(
+            'topk',
+            unit_id=0,
+            ret=ret[-1]
+        )
         return ret
 
     def append_global(
@@ -683,7 +708,17 @@ class ContextManager:
             self.num_global_block += 1
             for u in range(self.num_units):
                 self.block_k[u].append(global_block_k[u])
-                self._emit('add', u, self.num_global_block)
+                # get the indexs in k/v that are used in the block
+                block_start = global_remainder_st
+                block_end = global_remainder_st + self.block_size
+
+                self._emit(
+                    'add',
+                    unit_id=u,
+                    block_id=self.num_global_block,
+                    block_start=block_start,
+                    block_end=block_end
+                )
             global_remainder_st += self.block_size
 
         self._global_remainder_ed = global_remainder_ed
