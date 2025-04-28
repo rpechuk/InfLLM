@@ -4,7 +4,9 @@ fschat>=0.2.35
 datasets>=2.17.0
 omegaconf
 accelerate
-
+websockets
+sentencepiece
+protobuf
 # flash-attn
 
 # model-center>=1.0.3

@@ -4,3 +4,4 @@ benchmark/data
 .venv
 .env
 cache.log
+logs/
