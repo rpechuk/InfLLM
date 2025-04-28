@@ -1,10 +1,11 @@
-config=config/mistral-inf-llm.yaml
+config=config/working/qwen-4b-inf-llm.yaml
 
 mkdir benchmark/infinite-bench-result
 
-python benchmark/pred.py \
+python -m benchmark.pred \
 --config_path ${config} \
 --output_dir_path benchmark/infinite-bench-result \
---datasets kv_retrieval,passkey,number_string,code_debug,math_find,longbook_choice_eng
+--datasets kv_retrieval \
+--verbose
 
-python benchmark/eval.py --dir_path benchmark/infinite-bench-result
+python -m benchmark.eval --dir_path benchmark/infinite-bench-result

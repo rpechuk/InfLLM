@@ -9,6 +9,18 @@ from omegaconf import OmegaConf
 from inf_llm.utils import patch_hf, GreedySearch, patch_model_center
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
+from fastchat.serve.inference import (
+    ChatIO, GptqConfig, AWQConfig, 
+    ExllamaConfig, XftConfig, 
+    load_model, 
+    get_context_length,
+    get_conv_template,
+    get_conversation_template,
+    is_partial_stop,
+    is_sentence_complete,
+    prepare_logits_processor
+)
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config_path", required=True)
@@ -52,7 +64,8 @@ def get_model_and_tokenizer(config):
         bmt.load(model, os.path.join(config.path, "pytorch_model.pt"), strict=False)
         model = patch_model_center(model, config.type, **config)
     else:
-        model = AutoModelForCausalLM.from_pretrained(config.path, torch_dtype=torch.bfloat16, trust_remote_code=True, device_map="cuda")
+        print('$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$')
+        model = AutoModelForCausalLM.from_pretrained(config.path, torch_dtype=torch.bfloat16, trust_remote_code=True, device_map="auto")
         model = patch_hf(model, config.type, **config)
     return model, tokenizer
 
@@ -211,6 +224,7 @@ def get_pred(
     total = len(data)
 
     for json_obj in tqdm(data):
+        print('looping')
         prompt = prompt_format.format(**json_obj)
 
         extra_end_token_ids = []
@@ -233,6 +247,7 @@ def get_pred(
                 add_special_tokens = True
         
         else:
+            print('2')
             add_special_tokens = True
 
         tokenized_prompt = tokenizer(prompt, truncation=False, return_tensors="pt", add_special_tokens=add_special_tokens).input_ids[0]
@@ -333,6 +348,8 @@ if __name__ == '__main__':
             args.rank, args.world_size,
             args.verbose
         )
+        print('######################## PREDS')
+        print(preds)
         if multiprocessing:
             out_path = out_path + f"_{args.rank}"
         with open(out_path, "w+", encoding="utf-8") as f:

@@ -328,6 +328,25 @@ def chat_loop(
     top_p: float = 1.0
 ):
     # Model
+
+    def ee(**kwargs): return kwargs
+
+    print(ee(
+        # model_path,
+        device=device,
+        num_gpus=num_gpus,
+        max_gpu_memory=max_gpu_memory,
+        dtype=dtype,
+        load_8bit=load_8bit,
+        cpu_offloading=cpu_offloading,
+        gptq_config=gptq_config,
+        awq_config=awq_config,
+        exllama_config=exllama_config,
+        xft_config=xft_config,
+        revision=revision,
+        debug=debug,
+    ))
+
     model, tokenizer = load_model(
         model_path,
         device=device,

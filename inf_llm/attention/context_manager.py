@@ -159,7 +159,11 @@ class VectorTensor:
 
     def get_topk(self, tensor: torch.Tensor, topk): # inner product
         assert tensor.dim() == 1 and tensor.size(0) == self.hidden_size
+        # print(self.data.device, tensor.device)
+        tensor = tensor.to(self.data.device)
+        # selfdata = self.data.to(tensor.device)
         logits = torch.matmul(self.data[:self.length], tensor[:, None]).squeeze(dim=-1)
+        
         assert logits.dim() == 1 and logits.size(0) == self.length
         return logits.topk(topk, dim=0).indices.cpu().tolist()
 
@@ -280,7 +284,7 @@ class ContextManager:
         k = self.from_group_kv(k)
         assert k.shape[:-1] == score.shape
         assert k.shape[-2] == self.block_size
-        score_topk = score.topk(self.repr_topk, dim=-1).indices
+        score_topk = score.topk(self.repr_topk, dim=-1).indices  # Millan: getting representatives
         assert score_topk.shape == (self.num_units, self.unit_size, self.repr_topk)
         ret = torch.gather(k, -2, score_topk[:, :, :, None].expand(self.num_units, self.unit_size, self.repr_topk, self.dim_head))
         return ret

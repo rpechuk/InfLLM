@@ -4,7 +4,7 @@ import json
 import argparse
 import numpy as np
 
-from metrics import (
+from .metrics import (
     qa_f1_score,
     rouge_zh_score,
     qa_f1_zh_score,
@@ -16,7 +16,7 @@ from metrics import (
     code_sim_score,
 )
 
-from infinitebench_eval import (
+from .infinitebench_eval import (
     get_score_one_kv_retrieval,
     get_score_one_kv_retrieval,
     get_score_one_kv_retrieval,
