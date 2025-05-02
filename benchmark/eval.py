@@ -4,7 +4,10 @@ import json
 import argparse
 import numpy as np
 
-from .metrics import (
+import sys
+sys.path.append("..")
+
+from benchmark.metrics import (
     qa_f1_score,
     rouge_zh_score,
     qa_f1_zh_score,
@@ -16,7 +19,7 @@ from .metrics import (
     code_sim_score,
 )
 
-from .infinitebench_eval import (
+from benchmark.infinitebench_eval import (
     get_score_one_kv_retrieval,
     get_score_one_kv_retrieval,
     get_score_one_kv_retrieval,
@@ -116,8 +119,22 @@ def scorer(dataset, predictions, answers, all_classes):
         score = 0.
         if dataset in ["trec", "triviaqa", "samsum", "lsht"]:
             prediction = prediction.lstrip('\n').split('\n')[0]
+        if len(prediction) > len('a63ff6cf-2dbd-4553-8643-9fd6dfc4ebce'):
+            if '"' in prediction:
+                split = prediction.split('"')
+                if len(split) == 3:
+                    prediction = split[1]
+                elif len(split) == 5:
+                    prediction = split[3]
+                else:
+                    print("OH NO!", split)
         score = calc_score(dataset, prediction, ground_truths, all_classes)
+        print(f'prediction: {prediction}')
+        print(f'ground_truths: {ground_truths}')
+        print(f'score: {score}')
+        print('-'*100)
         total_score += score
+    print(f'total_score: {total_score}')
     return round(100 * total_score / len(predictions), 2)
 
 if __name__ == '__main__':

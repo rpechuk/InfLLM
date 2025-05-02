@@ -138,9 +138,21 @@ def split_retrieval_answer(pred: str):
 
 
 def get_score_one_kv_retrieval(pred, label, **kwargs) -> bool:
+    PARTIAL_CREDIT = False
     for c in ['\n', ':', '\"', '\'', '.', ',', '?', '!', '{', '}']:
         pred = pred.replace(c, ' ')
     words = pred.split()
+    if PARTIAL_CREDIT:
+        total = 0
+        for word in words:
+            split_word = word.split('-')
+            split_label = label.split('-')
+            cnt = 0
+            for i in range(min(len(split_word), len(split_label))):
+                if split_word[i] == split_label[i]:
+                    cnt += 1
+            total += cnt / len(split_label)
+        return total
     return label in words
 
 

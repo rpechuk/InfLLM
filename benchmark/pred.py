@@ -64,7 +64,8 @@ def get_model_and_tokenizer(config):
         bmt.load(model, os.path.join(config.path, "pytorch_model.pt"), strict=False)
         model = patch_model_center(model, config.type, **config)
     else:
-        print('$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$')
+        print('Config:', config)
+        print('-'*100)
         model = AutoModelForCausalLM.from_pretrained(config.path, torch_dtype=torch.bfloat16, trust_remote_code=True, device_map="auto")
         model = patch_hf(model, config.type, **config)
     return model, tokenizer
