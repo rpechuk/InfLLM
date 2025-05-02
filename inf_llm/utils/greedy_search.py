@@ -1,5 +1,5 @@
 import torch
-
+from tqdm import tqdm
 class GreedySearch:
     def __init__(self, model, tokenizer):
         model.eval()
@@ -45,11 +45,11 @@ class GreedySearch:
         if output:
             output_text = ""
         
-        for i in range(max_length + 1):
+        for i in tqdm(range(max_length + 1), desc="Generating"):
             if i == 0:
                 if chunk_size is None:
                     chunk_size = input_ids.size(1)
-                for st in range(0, input_ids.size(1) - 1, chunk_size):
+                for st in tqdm(range(0, input_ids.size(1) - 1, chunk_size), desc="Chunking"):
                     ed = min(input_ids.size(1) - 1, st + chunk_size)
                     out = self.model(
                         input_ids = input_ids[:, st: ed],

@@ -3,7 +3,7 @@ from typing import Optional
 from .context_manager import ContextManager
 from .context_manager_listener import file_listener
 
-DEBUG = True
+DEBUG = False
 
 def inf_llm_forward(
     n_local, n_init, topk, 

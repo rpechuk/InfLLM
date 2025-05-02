@@ -225,7 +225,6 @@ def get_pred(
     total = len(data)
 
     for json_obj in tqdm(data):
-        print('looping')
         prompt = prompt_format.format(**json_obj)
 
         extra_end_token_ids = []

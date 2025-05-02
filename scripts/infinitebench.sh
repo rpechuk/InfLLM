@@ -1,4 +1,4 @@
-config=config/working/qwen-4b-inf-llm.yaml
+config=config/working/llama-3-inf-llm.yaml
 
 mkdir benchmark/infinite-bench-result
 
@@ -8,4 +8,4 @@ python -m benchmark.pred \
 --datasets kv_retrieval \
 --verbose
 
-python -m benchmark.eval --dir_path benchmark/infinite-bench-result
+# python -m benchmark.eval --dir_path benchmark/infinite-bench-result
