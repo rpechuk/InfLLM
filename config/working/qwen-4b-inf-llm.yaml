@@ -9,6 +9,7 @@ model:
   max_cached_block: 32
   exc_block_size: 512
   fattn: false
+  faiss: true
   base: 1000000
   distance_scale: 1.0
 

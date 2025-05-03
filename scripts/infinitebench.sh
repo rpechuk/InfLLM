@@ -1,4 +1,4 @@
-config=config/mistral-inf-llm.yaml
+config=config/working/qwen-4b-inf-llm.yaml
 
 mkdir benchmark/infinite-bench-result
 

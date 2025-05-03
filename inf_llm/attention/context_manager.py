@@ -266,7 +266,13 @@ class ContextManager:
         for i in range(len(lst)):
             idx = lst[i][0]
             if ignore_blocks is None or (idx not in ignore_blocks):
+                was_on_gpu = self.global_blocks[u][idx].gpu_data is not None
                 self.global_blocks[u][idx].offload()
+                self._emit(
+                    'move_to_cpu', u, idx,
+                    was_on_gpu=was_on_gpu,
+                    event_detail='Block offloaded from GPU to CPU',
+                )
                 self.cached_blocks[u].pop(idx)
                 removed += 1
                 self._emit(
@@ -435,14 +441,15 @@ class ContextManager:
 
                 
                 assert b_idx in self.cached_blocks[u]
+                was_on_gpu = self.global_blocks[u][b_idx].gpu_data is not None
                 self.global_blocks[u][b_idx].load((global_h_k[u, :, st:ed, :], global_h_v[u, :, st:ed, :]))
                 self._emit(
-                    'load',
-                    unit_id=u,
-                    block_id=b_idx,
-                    block_start=st,
-                    block_end=ed
+                    'move_to_gpu', u, b_idx,
+                    was_on_gpu=was_on_gpu,
+                    block_shape=str(global_h_k[u, :, st:ed, :].shape),
+                    event_detail='Block loaded to GPU for attention',
                 )
+                self._emit('load', u, b_idx)
 
              
         init_st = block_num * self.block_size

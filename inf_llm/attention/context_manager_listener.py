@@ -3,10 +3,14 @@ from time import perf_counter
 
 class GlobalCacheListener(Protocol):
     """
-    event     - 'add' | 'load' | 'evict'
-    unit_id   - batch index  (0-based, size = num_units)
-    block_id  - global block index  (0-based, monotonically increasing)
-    extra     - anything else you feel like emitting (length, timestamp …)
+    event      - 'add' | 'load' | 'evict' | 'move_to_gpu' | 'move_to_cpu'
+    unit_id    - batch index  (0-based, size = num_units)
+    block_id   - global block index  (0-based, monotonically increasing)
+    extra      - additional info, e.g.:
+        was_on_gpu: bool (whether the block was already on GPU before the event)
+        block_shape: str (shape of the block being loaded, if applicable)
+        event_detail: str (human-readable description of the event)
+        (length, timestamp, ...)
     """
     def __call__(self,
                  event: str,

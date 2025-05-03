@@ -61,7 +61,7 @@ model:
   path: mistralai/Mistral-7B-Instruct-v0.2 
 
   # Use flash-attention or not. 
-  # For inf-llm/infinite-lm/stream-llm, we implemented multi-stage flash-attention by OpenAI's Triton.
+  # For inf-llm/infinite-lm/stream-lm, we implemented multi-stage flash-attention by OpenAI's Triton.
   fattn: false 
   
   # RoPE base and distance_scale
@@ -160,6 +160,119 @@ If you find InfLLM useful, please cite the following paper:
   year         = {2024}
 }
 ```
+
+# InfLLM Chat Application
+
+A FastAPI-based chat application for serving large language models with infinite context length capabilities.
+
+## System Requirements
+
+- Python 3.8+
+- CUDA-compatible GPU (tested with NVIDIA RTX 2080 Ti)
+- CUDA 12.8+ and appropriate NVIDIA drivers
+
+## Installation
+
+1. Clone the repository:
+```bash
+git clone [repository-url]
+cd InfLLM
+```
+
+2. Install the required dependencies:
+```bash
+pip install -r requirements.txt
+```
+
+## Running the Chat Application
+
+1. Make sure you have the model configuration file in the correct location:
+   - Configuration files should be placed in `config/working/`
+   - The default configuration used is `qwen-4b-inf-llm.yaml`
+
+2. Start the server:
+```bash
+uvicorn inf_llm.serve:app --host 0.0.0.0 --port 8000
+```
+
+Command line options:
+- `--host`: The host address to bind to (default: 0.0.0.0)
+- `--port`: The port to listen on (default: 8000)
+- `--reload`: Enable auto-reload for development (optional)
+
+3. Access the chat interface:
+   - Open your web browser and navigate to `http://[your-host]:8000`
+   - The interface will automatically connect to the model once it's loaded
+
+## Recent Changes
+
+### Code Cleanup and Optimization
+
+1. Debug Logging Improvements:
+   - Removed excessive debug prints for cleaner logs
+   - Retained critical debugging information for:
+     - Text streaming chunks (with special character visibility)
+     - Exception handling in the token stream
+   - Debug output now uses `repr()` for better visibility of newlines and special characters
+
+2. Streaming Implementation:
+   - Maintained efficient token streaming with proper newline handling
+   - Preserved SSE (Server-Sent Events) implementation for real-time updates
+   - Kept error handling and reporting intact
+
+### API Endpoints
+
+The application provides the following endpoints:
+
+- `GET /`: Main chat interface
+- `GET /status`: Check if the model is ready
+- `POST /chat`: Main chat endpoint
+  - Supports both streaming and non-streaming responses
+  - Accepts JSON payload with:
+    - `prompt`: The user's input
+    - `history`: Previous conversation history
+  - Query parameter `stream=false` for non-streaming response
+
+## Model Configuration
+
+The application uses a YAML configuration file for model settings. The default location is:
+```
+config/working/qwen-4b-inf-llm.yaml
+```
+
+Make sure your model configuration includes:
+- Model path
+- Model type
+- Any specific parameters for infinite context length handling
+
+## Error Handling
+
+The application includes robust error handling:
+- Model loading status checks
+- Stream processing error catching
+- Proper error responses with status codes
+- Graceful fallback for various edge cases
+
+## Development Notes
+
+- The server uses FastAPI for high-performance async operations
+- Static files are served from `inf_llm/static/`
+- The application supports hot reloading when run with `--reload`
+- GPU memory usage is optimized for streaming responses
+
+## Troubleshooting
+
+If you encounter issues:
+
+1. Check the model status endpoint (`/status`) to ensure the model is loaded
+2. Monitor the server logs for streaming-related issues
+3. Verify GPU memory availability using `nvidia-smi`
+4. Ensure all dependencies are correctly installed
+5. Check the configuration file exists and is properly formatted
+
+## License
+
+[Include license information here]
 
 
 

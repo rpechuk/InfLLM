@@ -21,6 +21,14 @@ from typing import Iterable, Optional, Dict
 import warnings
 import torch
 import argparse
+import threading
+from fastapi import FastAPI, Request, Response
+from fastapi.responses import HTMLResponse, FileResponse, JSONResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
+import yaml
+from transformers import AutoModelForCausalLM, AutoTokenizer
+from contextlib import asynccontextmanager
+import asyncio
 
 from fastchat.serve.inference import (
     ChatIO, GptqConfig, AWQConfig, 
@@ -44,6 +52,13 @@ from fastchat.serve.cli import (
 
 from inf_llm.utils import patch_hf
 
+# Set this to True to enable debug logging, or False to disable
+DEBUG = True
+
+def debug_print(*args, **kwargs):
+    if DEBUG:
+        print(*args, **kwargs)
+
 @torch.inference_mode()
 def generate_stream(
     model,
@@ -55,11 +70,13 @@ def generate_stream(
     judge_sent_end: bool = False,
     clear_kv_cache: bool = True,
 ):
+    debug_print("[DEBUG] generate_stream called")
     if hasattr(model, "device"):
         device = model.device
 
     # Read parameters
     prompt = params["prompt"]
+    debug_print(f"[DEBUG] generate_stream prompt: {prompt}")
     len_prompt = len(prompt)
     temperature = float(params.get("temperature", 1.0))
     repetition_penalty = float(params.get("repetition_penalty", 1.0))
@@ -72,7 +89,7 @@ def generate_stream(
     stop_token_ids = params.get("stop_token_ids", None) or []
     if tokenizer.eos_token_id not in stop_token_ids:
         stop_token_ids.append(tokenizer.eos_token_id)
-
+    debug_print(f"[DEBUG] generate_stream stop_token_ids: {stop_token_ids}")
     logits_processor = prepare_logits_processor(
         temperature, repetition_penalty, top_p, top_k
     )
@@ -124,11 +141,12 @@ def generate_stream(
     finish_reason = None
     stopped = False
     for i in range(max_new_tokens):
+        debug_print(f"[DEBUG] generate_stream loop i={i}")
         if i == 0:  # prefill
             out = model(input_ids=start_ids, use_cache=True, past_key_values=past_key_values)
             logits = out.logits
             past_key_values = out.past_key_values
-
+            debug_print(f"[DEBUG] generate_stream prefill logits shape: {logits.shape}")
             if logprobs is not None:
                 # Prefull logprobs for the prompt.
                 shift_input_ids = start_ids[..., 1:].contiguous()
@@ -150,6 +168,7 @@ def generate_stream(
             sent_interrupt = False
             logits = out.logits
             past_key_values = out.past_key_values
+            debug_print(f"[DEBUG] generate_stream decode logits shape: {logits.shape}")
 
         if logits_processor:
             if repetition_penalty > 1.0:
@@ -172,6 +191,7 @@ def generate_stream(
             indices = torch.multinomial(probs, num_samples=2)
             tokens = [int(token) for token in indices.tolist()]
         token = tokens[0]
+        debug_print(f"[DEBUG] generate_stream sampled token: {token}, decoded: '{tokenizer.decode([token])}', is_eos: {token == tokenizer.eos_token_id}")
         output_ids.append(token)
         if logprobs is not None:
             # Cannot use last_token_logits because logprobs is based on raw logits.
@@ -197,8 +217,9 @@ def generate_stream(
                 tmp_output_ids,
                 skip_special_tokens=True,
                 spaces_between_special_tokens=False,
-                clean_up_tokenization_spaces=True,
+                clean_up_tokenization_spaces=False,
             )
+            debug_print(f"[DEBUG] generate_stream decoded output: {output}")
             ret_logprobs = None
             if logprobs is not None:
                 ret_logprobs = {
@@ -256,6 +277,7 @@ def generate_stream(
 
             # Prevent yielding partial stop sequence
             if not partially_stopped:
+                debug_print(f"[DEBUG] generate_stream yielding output: {output}")
                 yield {
                     "text": output,
                     "logprobs": ret_logprobs,
@@ -268,6 +290,7 @@ def generate_stream(
                 }
 
         if stopped:
+            debug_print("[DEBUG] generate_stream stopped")
             break
 
     # Finish stream event, which contains finish reason
@@ -277,6 +300,7 @@ def generate_stream(
     if stopped:
         finish_reason = "stop"
 
+    debug_print(f"[DEBUG] generate_stream final yield: {output}")
     yield {
         "text": output,
         "logprobs": ret_logprobs,
@@ -328,6 +352,25 @@ def chat_loop(
     top_p: float = 1.0
 ):
     # Model
+
+    def ee(**kwargs): return kwargs
+
+    debug_print(ee(
+        # model_path,
+        device=device,
+        num_gpus=num_gpus,
+        max_gpu_memory=max_gpu_memory,
+        dtype=dtype,
+        load_8bit=load_8bit,
+        cpu_offloading=cpu_offloading,
+        gptq_config=gptq_config,
+        awq_config=awq_config,
+        exllama_config=exllama_config,
+        xft_config=xft_config,
+        revision=revision,
+        debug=debug,
+    ))
+
     model, tokenizer = load_model(
         model_path,
         device=device,
@@ -398,15 +441,15 @@ def chat_loop(
             inp = ""
 
         if inp == "!!exit" or not inp:
-            print("exit...")
+            debug_print("exit...")
             break
         elif inp == "!!reset":
-            print("resetting...")
+            debug_print("resetting...")
             _clear_kv_cache = True
             conv = new_chat()
             continue
         elif inp == "!!remove":
-            print("removing last message...")
+            debug_print("removing last message...")
             if len(conv.messages) > conv.offset:
                 _clear_kv_cache = True
                 # Assistant
@@ -417,10 +460,10 @@ def chat_loop(
                     conv.messages.pop()
                 reload_conv(conv)
             else:
-                print("No messages to remove.")
+                debug_print("No messages to remove.")
             continue
         elif inp == "!!regen":
-            print("regenerating last message...")
+            debug_print("regenerating last message...")
             if len(conv.messages) > conv.offset:
                 _clear_kv_cache = True
                 # Assistant
@@ -433,57 +476,57 @@ def chat_loop(
                     inp = conv.messages.pop()[1]
                 else:
                     # Shouldn't happen in normal circumstances
-                    print("No user message to regenerate from.")
+                    debug_print("No user message to regenerate from.")
                     continue
             else:
-                print("No messages to regenerate.")
+                debug_print("No messages to regenerate.")
                 continue
         elif inp.startswith("!!save"):
             args = inp.split(" ", 1)
 
             if len(args) != 2:
-                print("usage: !!save <filename>")
+                debug_print("usage: !!save <filename>")
                 continue
             else:
                 filename = args[1]
 
-            # Add .json if extension not present
-            if not "." in filename:
-                filename += ".json"
+                # Add .json if extension not present
+                if not "." in filename:
+                    filename += ".json"
 
-            print("saving...", filename)
-            with open(filename, "w") as outfile:
-                json.dump(conv.dict(), outfile)
-            continue
+                debug_print("saving...", filename)
+                with open(filename, "w") as outfile:
+                    json.dump(conv.dict(), outfile)
+                continue
         elif inp.startswith("!!load"):
             args = inp.split(" ", 1)
 
             if len(args) != 2:
-                print("usage: !!load <filename>")
+                debug_print("usage: !!load <filename>")
                 continue
             else:
                 filename = args[1]
 
-            # Check if file exists and add .json if needed
-            if not os.path.exists(filename):
-                if (not filename.endswith(".json")) and os.path.exists(
-                    filename + ".json"
-                ):
-                    filename += ".json"
-                else:
-                    print("file not found:", filename)
-                    continue
+                # Check if file exists and add .json if needed
+                if not os.path.exists(filename):
+                    if (not filename.endswith(".json")) and os.path.exists(
+                        filename + ".json"
+                    ):
+                        filename += ".json"
+                    else:
+                        debug_print("file not found:", filename)
+                        continue
 
-            print("loading...", filename)
-            with open(filename, "r") as infile:
-                new_conv = json.load(infile)
+                debug_print("loading...", filename)
+                with open(filename, "r") as infile:
+                    new_conv = json.load(infile)
 
-            conv = get_conv_template(new_conv["template_name"])
-            conv.set_system_message(new_conv["system_message"])
-            conv.messages = new_conv["messages"]
-            reload_conv(conv)
-            _clear_kv_cache = True
-            continue
+                conv = get_conv_template(new_conv["template_name"])
+                conv.set_system_message(new_conv["system_message"])
+                conv.messages = new_conv["messages"]
+                reload_conv(conv)
+                _clear_kv_cache = True
+                continue
 
         conv.append_message(conv.roles[0], inp)
         conv.append_message(conv.roles[1], None)
@@ -530,10 +573,10 @@ def chat_loop(
                     "outputs": outputs,
                     "speed (token/s)": round(num_tokens / duration, 2),
                 }
-                print(f"\n{msg}\n")
+                debug_print(f"\n{msg}\n")
 
         except KeyboardInterrupt:
-            print("stopped generation.")
+            debug_print("stopped generation.")
             # If generation didn't finish
             if conv.messages[-1][1] is None:
                 conv.messages.pop()
@@ -577,7 +620,7 @@ def main(args):
             data_type=args.xft_dtype,
         )
         if args.device != "cpu":
-            print("xFasterTransformer now is only support CPUs. Reset device to CPU")
+            debug_print("xFasterTransformer now is only support CPUs. Reset device to CPU")
             args.device = "cpu"
     else:
         xft_config = None
@@ -625,7 +668,7 @@ def main(args):
             clear_kv_cache=args.clear_kv_cache
         )
     except KeyboardInterrupt:
-        print("exit...")
+        debug_print("exit...")
 
 from fastchat.conversation import Conversation, register_conv_template, SeparatorStyle
 import dataclasses
@@ -672,57 +715,3 @@ register_conv_template(
         stop_token_ids=[128009, 128001]
     )
 )
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    add_model_args(parser)
-    parser.add_argument(
-        "--conv-template", type=str, default=None, help="Conversation prompt template."
-    )
-    parser.add_argument(
-        "--conv-system-msg", type=str, default=None, help="Conversation system message."
-    )
-    parser.add_argument("--temperature", type=float, default=0.7)
-    parser.add_argument("--repetition_penalty", type=float, default=1.0)
-    parser.add_argument("--top_k", type=int, default=-1)
-    parser.add_argument("--top_p", type=float, default=1.0)
-    parser.add_argument("--max-new-tokens", type=int, default=512)
-    parser.add_argument("--no-history", action="store_true")
-    parser.add_argument(
-        "--style",
-        type=str,
-        default="simple",
-        choices=["simple", "rich", "programmatic"],
-        help="Display style.",
-    )
-    parser.add_argument(
-        "--multiline",
-        action="store_true",
-        help="Enable multiline input. Use ESC+Enter for newline.",
-    )
-    parser.add_argument(
-        "--mouse",
-        action="store_true",
-        help="[Rich Style]: Enable mouse support for cursor positioning.",
-    )
-    parser.add_argument(
-        "--judge-sent-end",
-        action="store_true",
-        help="Whether enable the correction logic that interrupts the output of sentences due to EOS.",
-    )
-    parser.add_argument(
-        "--debug",
-        action="store_true",
-        help="Print useful debug information (e.g., prompts)",
-    )
-    parser.add_argument(
-        "--inf-llm-config-path",
-        type=str, help="Inf LLM patch config",
-        default=None
-    )
-    parser.add_argument(
-        "--clear-kv-cache",
-        action="store_true"
-    )
-    args = parser.parse_args()
-    main(args)
