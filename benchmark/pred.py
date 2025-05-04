@@ -66,7 +66,7 @@ def get_model_and_tokenizer(config):
     else:
         print('Config:', config)
         print('-'*100)
-        model = AutoModelForCausalLM.from_pretrained(config.path, torch_dtype=torch.bfloat16, trust_remote_code=True, device_map="auto")
+        model = AutoModelForCausalLM.from_pretrained(config.path, torch_dtype=torch.bfloat16, trust_remote_code=True, device_map="cuda")
         model = patch_hf(model, config.type, **config)
     return model, tokenizer
 

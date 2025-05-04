@@ -1,8 +1,9 @@
 model:
   type: inf-llm
-  path: meta-llama/Meta-Llama-3-8B-Instruct
+  # path: meta-llama/Meta-Llama-3-8B-Instruct
+  path: /model/Meta-Llama-3-8B-Instruct
   block_size: 128
-  fattn: false
+  fattn: true
   n_init: 128
   n_local: 4096
   topk: 16
