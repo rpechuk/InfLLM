@@ -1,7 +1,7 @@
 import torch
 from typing import Optional
 from .context_manager import ContextManager
-from .context_manager_listener import file_listener
+from .context_manager_listener import file_listener, word_cloud_listener
 
 DEBUG = True
 
@@ -59,7 +59,10 @@ def inf_llm_forward(
                 pin_memory,
                 faiss,
                 perhead,
-                listeners=[file_listener(f'logs/cache{self.layer_idx}.log', model)] if DEBUG else None,
+                listeners=[
+                    file_listener(f'logs/cache{self.layer_idx}.log', model),
+                    word_cloud_listener(f'clouds/u{self.layer_idx}', model),
+                ] if DEBUG else None,
             )            
 
         local_q, local_k, local_v = h_q, h_k, h_v
