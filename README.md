@@ -144,8 +144,8 @@ We integrated fastchat's CLI chat.
 ```
 python -m inf_llm.chat \
     --model-path Qwen/Qwen1.5-4B-Chat \
-    --inf-llm-config-path config/qwen-4b-inf-llm.yaml \
-    --num-gpus 4 \
+    --inf-llm-config-path config/working/qwen-4b-inf-llm.yaml \
+    --num-gpus 2 \
     --max-gpu-memory 10GiB
 ```
 
