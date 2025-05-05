@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>InfLLM Chat</title>
+  <link rel="stylesheet" href="/static/css/index.css">
+</head>
+
+<body>
+  <div class="main-container">
+    <!-- Chat section -->
+    <div class="chat-container">
+      <div id="container">
+        <h2>InfLLM Chat</h2>
+        <div id="loading-overlay"
+          style="position:fixed;top:0;left:0;width:50vw;height:100vh;background:rgba(255,255,255,0.95);z-index:1000;display:flex;align-items:center;justify-content:center;font-size:2em;">
+          <div>
+            <div style="text-align:center;">
+              <svg width="48" height="48" viewBox="0 0 100 100" style="margin-bottom:16px;">
+                <circle cx="50" cy="50" r="35" stroke="#1976d2" stroke-width="10" fill="none" stroke-dasharray="164"
+                  stroke-dashoffset="124">
+                  <animateTransform attributeName="transform" type="rotate" from="0 50 50" to="360 50 50" dur="1s"
+                    repeatCount="indefinite" />
+                </circle>
+              </svg>
+            </div>
+            Loading model, please wait...
+          </div>
+        </div>
+        <div id="chat" style="display:none"></div>
+        <form id="input-row" style="display:none">
+          <textarea id="prompt" autocomplete="off" placeholder="Type your message..." rows="1"
+            style="resize:none;"></textarea>
+          <button id="send" type="submit">Send</button>
+          <button id="stop" type="button"
+            style="margin-left:8px;display:none;background:#e53935;color:#fff;">Stop</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="cloud-container">
+      <iframe src="static/html/clouds.html" title="Cloud Image Viewer"></iframe>
+    </div>
+  </div>
+
+  <script src="/static/js/index.js"></script>
+  <!-- Optionally include marked.js for markdown rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</body>
+
+</html>

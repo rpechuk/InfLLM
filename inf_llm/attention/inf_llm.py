@@ -61,7 +61,7 @@ def inf_llm_forward(
                 perhead,
                 listeners=[
                     file_listener(f'logs/cache{self.layer_idx}.log', model),
-                    word_cloud_listener(f'clouds/u{self.layer_idx}', model),
+                    word_cloud_listener(f'inf_llm/static/clouds/u{self.layer_idx}', model),
                 ] if DEBUG else None,
             )            
 

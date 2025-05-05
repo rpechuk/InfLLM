@@ -1,0 +1,118 @@
+body {
+  font-family: sans-serif;
+  margin: 0;
+  padding: 20px;
+  background-color: #f7f7f7;
+}
+
+.container {
+  display: flex;
+  flex-direction: row;
+  height: 100%;
+}
+
+.directory-nav {
+  width: 250px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 15px;
+  overflow-y: auto;
+  max-height: calc(100vh - 40px);
+}
+
+.image-viewer {
+  flex: 1;
+  margin-left: 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 15px;
+  text-align: center;
+  overflow-y: auto;
+  max-height: calc(100vh - 40px);
+}
+
+.directory {
+  margin-bottom: 10px;
+}
+
+.directory-name {
+  font-weight: bold;
+  cursor: pointer;
+  padding: 5px;
+  background: #eee;
+  border-radius: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.directory-name:hover {
+  background: #ddd;
+}
+
+.directory-files {
+  margin-left: 15px;
+  display: none;
+}
+
+.file {
+  padding: 3px 5px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.file:hover {
+  background: #f0f0f0;
+}
+
+.file.active {
+  background: #1976d2;
+  color: white;
+}
+
+.toggle-icon {
+  font-size: 16px;
+}
+
+img.cloud-image {
+  max-width: 100%;
+  max-height: 80vh;
+  margin-top: 10px;
+}
+
+.image-title {
+  margin-bottom: 10px;
+  font-size: 1.2em;
+}
+
+.no-image {
+  color: #666;
+  margin-top: 100px;
+}
+
+.empty-dir {
+  font-style: italic;
+  color: #999;
+  padding: 5px;
+}
+
+#retry-btn {
+  background: #1976d2;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 5px 15px;
+  cursor: pointer;
+}
+
+#retry-btn:hover {
+  background: #1565c0;
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  padding: 20px;
+}

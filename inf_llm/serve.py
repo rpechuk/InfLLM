@@ -6,6 +6,8 @@ import os
 import sys
 import argparse
 import asyncio
+import json
+from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -58,7 +60,7 @@ def status():
 
 @app.get("/", response_class=HTMLResponse)
 def serve_index():
-    index_path = os.path.join(STATIC_DIR, "index.html")
+    index_path = os.path.join(STATIC_DIR, "html", "index.html")
     if not os.path.exists(index_path):
         return HTMLResponse("<html><body><h1>InfLLM Chat</h1><div id='loading'>Loading model, please wait...</div></body></html>")
     return FileResponse(index_path)
@@ -161,6 +163,41 @@ async def test_stream():
             yield f"data: {i}\\n\\n"
             await asyncio.sleep(1)
     return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+@app.get("/cloud-directory")
+def get_cloud_directory():
+    base_dir = Path("inf_llm/static/clouds")
+
+    # check if base dir exists
+    if not base_dir.exists() or not base_dir.is_dir():
+        return {"error": "Cloud directory not found"}
+
+    def scan_dir(path):
+        result = {"type": "directory", "name": path.name, "children": []}
+
+        # list and sort all items in dir
+        items = sorted(list(path.iterdir()), key=lambda x: x.name)
+        print(f"Scanning directories in {path}: {[item.name for item in items]}")
+        for item in items:
+
+            if item.is_dir():
+                # recursively scan subdir
+                result["children"].append(scan_dir(item))
+            elif item.is_file() and item.suffix.lower() in ['.png', '.jpg', '.jpeg', '.gif']:
+                print("Found image:", item.name)
+                # only include images
+                result["children"].append({
+                    "type": "file",
+                    "name": item.name,
+                    "path": str(item.relative_to(base_dir))
+                })
+
+        return result
+
+    # scan base dir
+    directory_structure = scan_dir(base_dir)
+
+    return directory_structure
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
