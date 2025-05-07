@@ -1,8 +1,7 @@
 from fastapi import FastAPI
-import uvicorn
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from backend import state
-from fastapi.middleware.cors import CORSMiddleware
 
 # Hardcoded CLI-like config (replace with actual values as needed)
 MODEL_PATH = "Qwen/Qwen1.5-4B-Chat"
@@ -12,6 +11,7 @@ MAX_GPU_MEMORY = "10GiB"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Load model and tokenizer at startup
     from inf_llm import chat as inf_llm_chat
     import torch
     from omegaconf import OmegaConf
@@ -38,9 +38,14 @@ async def lifespan(app: FastAPI):
 
 from backend.endpoints.chat import router as chat_router
 
-app = FastAPI(title="InfLLM API", description="API for chatting with InfLLM model.", lifespan=lifespan)
+# Create FastAPI app
+app = FastAPI(
+    title="InfLLM API",
+    description="API for chatting with InfLLM model.",
+    lifespan=lifespan
+)
 
-# Allow CORS for local frontend development
+# Allow CORS for local frontend development (update for production!)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Change to specific origins in production
@@ -49,4 +54,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Include API routers
 app.include_router(chat_router)
+
+# Optional: allow running with `python backend/main.py`
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)

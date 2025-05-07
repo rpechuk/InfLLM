@@ -12,10 +12,11 @@ import backend.state as state
 
 router = APIRouter()
 
-# Single in-memory conversation
+# Single in-memory conversation (for demo; not thread-safe for production)
 _conversation: Any = None
 
 class ChatRequest(BaseModel):
+    """Request body for /chat endpoint."""
     message: str
     temperature: Optional[float] = 0.7
     repetition_penalty: Optional[float] = 1.0
@@ -23,12 +24,12 @@ class ChatRequest(BaseModel):
     top_k: Optional[int] = -1
     top_p: Optional[float] = 1.0
 
-# Helper to get a conversation template using model path (as in chat.py)
 def get_conversation():
+    """Get a conversation template using the model path."""
     return inf_llm_chat.get_conversation_template(state.model.name_or_path)
 
-# Streaming generator for chat responses
 def chat_stream(request: ChatRequest) -> Generator[str, None, None]:
+    """Streaming generator for chat responses."""
     global _conversation
     if state.model is None or state.tokenizer is None:
         print("[chat_stream] Model not loaded", file=sys.stderr)
@@ -80,4 +81,5 @@ def chat_stream(request: ChatRequest) -> Generator[str, None, None]:
 
 @router.post("/chat")
 def chat_endpoint(request: ChatRequest):
+    """POST endpoint for streaming chat responses."""
     return StreamingResponse(chat_stream(request), media_type="text/event-stream") 

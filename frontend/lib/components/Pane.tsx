@@ -8,9 +8,9 @@ interface PaneProps {
 export default function Pane({ children, className = "" }: PaneProps) {
   return (
     <div
-      className={`bg-background dark:bg-[#18181b] rounded-xl shadow-lg border border-gray-700 flex flex-col w-full h-full overflow-hidden relative ${className}`}
+      className={`bg-background relative flex h-full w-full flex-col overflow-hidden rounded-xl border border-gray-700 shadow-lg dark:bg-[#18181b] ${className}`}
     >
       {children}
     </div>
   );
-} 
+}

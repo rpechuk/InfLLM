@@ -1,3 +1,6 @@
-model = None
-tokenizer = None
-conv_template_name = None 
+# Global state for model and tokenizer (populated at app startup)
+model = None  # HuggingFace model instance
+
+tokenizer = None  # Tokenizer instance
+
+conv_template_name = None  # Conversation template name (optional) 
