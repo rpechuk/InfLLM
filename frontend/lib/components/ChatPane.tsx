@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, DragEvent } from "react";
 import { streamChatResponse, createNewChat, checkModelReady } from "@/api/chat";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -7,6 +7,12 @@ import { FaPlus, FaSpinner } from "react-icons/fa";
 
 interface Message {
   role: "user" | "model";
+  content: string;
+  files?: UploadedFile[];
+}
+
+interface UploadedFile {
+  name: string;
   content: string;
 }
 
@@ -20,6 +26,8 @@ export default function ChatPane() {
   const [isCheckingModel, setIsCheckingModel] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isCreatingChat, setIsCreatingChat] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [isDragActive, setIsDragActive] = useState(false);
 
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
@@ -65,21 +73,65 @@ export default function ChatPane() {
     }
   }
 
+  // Drag and drop handlers
+  function handleDragOver(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setIsDragActive(true);
+  }
+  function handleDragLeave(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setIsDragActive(false);
+  }
+  function handleDrop(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setIsDragActive(false);
+    const files = Array.from(e.dataTransfer.files);
+    files.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setUploadedFiles((prev) => [
+          ...prev,
+          { name: file.name, content: event.target?.result as string },
+        ]);
+      };
+      reader.readAsText(file);
+    });
+  }
+  function handleRemoveFile(idx: number) {
+    setUploadedFiles((prev) => prev.filter((_, i) => i !== idx));
+  }
+
   async function sendMessage() {
     if (!input.trim() || isGenerating || isCreatingChat || !isModelReady) return;
     setError(null);
-    setMessages((msgs) => [...msgs, { role: "user", content: input }]);
-    const userInput = input;
+    // Format message with file context if files are uploaded
+    let formattedMessage = input;
+    if (uploadedFiles.length > 0) {
+      const context = uploadedFiles
+        .map(
+          (f) => `${f.name}\n\u0060\u0060\u0060\n${f.content}\n\u0060\u0060\u0060`
+        )
+        .join("\n");
+      formattedMessage = `# Context\n${context}\n---\n# Request\n${input}`;
+    }
+    setMessages((msgs) => [
+      ...msgs,
+      {
+        role: "user",
+        content: input,
+        files: uploadedFiles.length > 0 ? [...uploadedFiles] : undefined,
+      } as any, // We'll handle files in rendering
+    ]);
     setInput("");
+    setUploadedFiles([]);
     let modelReply = "";
     setMessages((msgs) => [...msgs, { role: "model", content: "" }]);
     setIsGenerating(true);
     try {
-      await streamChatResponse(userInput, (token) => {
+      await streamChatResponse(formattedMessage, (token) => {
         modelReply += token;
         setMessages((msgs) => {
           const updated = [...msgs];
-          // Find the last model message (should be the last one)
           const idx = updated.map((m) => m.role).lastIndexOf("model");
           if (idx !== -1) updated[idx] = { role: "model", content: modelReply };
           return updated;
@@ -165,7 +217,18 @@ export default function ChatPane() {
   };
 
   return (
-    <div className="flex h-full w-full flex-1 flex-col bg-gray-950 rounded-lg shadow-lg border border-gray-800">
+    <div
+      className="flex h-full w-full flex-1 flex-col bg-gray-950 rounded-lg shadow-lg border border-gray-800 relative"
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {/* Drag overlay */}
+      {isDragActive && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 rounded-lg">
+          <span className="text-2xl text-white font-bold">Drop file(s) to add as context</span>
+        </div>
+      )}
       {/* New Chat button */}
       <div className="flex items-center justify-between border-b border-gray-800 bg-gray-900 px-8 py-4 rounded-t-lg">
         <button
@@ -197,12 +260,30 @@ export default function ChatPane() {
       )}
       {/* Chat area */}
       <div className="flex-1 overflow-y-auto border-x border-gray-800 bg-gray-900 shadow-inner px-8 py-6 rounded-b-lg">
-        {messages.map((msg, i) => (
+        {messages.map((msg: any, i) => (
           <div key={i} className="mb-6">
             <span
               className={`mb-1 block font-mono font-bold ${msg.role === "user" ? "text-blue-400" : "text-green-400"}`}
             >
-              {msg.role === "user" ? "You:" : "Model:"}
+              {msg.role === "user" ? (
+                <>
+                  You:
+                  {msg.files && msg.files.length > 0 && (
+                    <span className="ml-2 flex flex-wrap gap-2">
+                      {msg.files.map((f: UploadedFile, idx: number) => (
+                        <span
+                          key={idx}
+                          className="inline-flex items-center bg-gray-700 text-xs text-gray-100 rounded-full px-3 py-1 mr-1 mt-1"
+                        >
+                          {f.name}
+                        </span>
+                      ))}
+                    </span>
+                  )}
+                </>
+              ) : (
+                "Model:"
+              )}
             </span>
             {msg.role === "model" ? (
               <div className="font-mono text-base whitespace-pre-wrap text-green-200">
@@ -222,6 +303,27 @@ export default function ChatPane() {
         ))}
         <div ref={messagesEndRef} />
       </div>
+      {/* File pills above prompt */}
+      {uploadedFiles.length > 0 && (
+        <div className="absolute left-0 right-0 bottom-28 flex flex-wrap gap-2 px-8 z-20">
+          {uploadedFiles.map((file, idx) => (
+            <span
+              key={idx}
+              className="inline-flex items-center bg-gray-700 text-xs text-gray-100 rounded-full px-3 py-1 relative group"
+            >
+              {file.name}
+              <button
+                className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-red-400"
+                onClick={() => handleRemoveFile(idx)}
+                type="button"
+                tabIndex={-1}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
       {/* Prompt input */}
       <form
         className="flex h-24 items-end gap-3 border-t border-gray-800 bg-gray-900 px-8 py-4 rounded-b-lg"
