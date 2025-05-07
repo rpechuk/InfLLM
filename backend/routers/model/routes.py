@@ -1,31 +1,23 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
-from typing import Optional, Dict, Any
+from fastapi.responses import StreamingResponse
+from typing import Optional
 import sys
 import os
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 import backend.state as state
-from inf_llm import chat as inf_llm_chat
+from .types import ModelInfoResponse, ChatRequest
+from .chat_utils import chat_stream, get_conversation
 
-router = APIRouter()
+model_router = APIRouter()
 
-class ModelInfoResponse(BaseModel):
-    """response body for /model"""
-    model_name: str
-    model_type: str
-    model_hidden_size: int
-    model_vocab_size: int
-    model_num_layers: int
-    tokenizer_name: str
-    tokenizer_class: str
-    tokenizer_vocab_size: int
-    tokenizer_model_max_length: int
-    special_tokens: Dict[str, Any]
-
-@router.get("/model", response_model=ModelInfoResponse)
+@model_router.get("/model", response_model=ModelInfoResponse)
 def model_info(verbose: Optional[bool] = False) -> ModelInfoResponse:
-
+    """
+    GET /model
+    Input: verbose (query param, optional)
+    Output: ModelInfoResponse
+    """
     if state.model is None or state.tokenizer is None:
         print("[model info] Model not loaded", file=sys.stderr)
         raise HTTPException(status_code=500, detail="Model not loaded or template not set")
@@ -42,3 +34,23 @@ def model_info(verbose: Optional[bool] = False) -> ModelInfoResponse:
         tokenizer_model_max_length=state.tokenizer.model_max_length,
         special_tokens=state.tokenizer.special_tokens_map,
     )
+
+@model_router.post("/chat")
+def chat_endpoint(request: ChatRequest):
+    """
+    POST /chat
+    Input: ChatRequest
+    Output: Streaming text/event-stream
+    """
+    return StreamingResponse(chat_stream(request), media_type="text/event-stream")
+
+@model_router.post("/new_chat")
+def new_chat_endpoint():
+    """
+    POST /new_chat
+    Input: None
+    Output: None
+    """
+    state._conversation = get_conversation()
+    state.model._fschat_pkv = None
+    return {"status": "ok"}

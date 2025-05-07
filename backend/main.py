@@ -37,8 +37,8 @@ async def lifespan(app: FastAPI):
     state.model = inf_llm_chat.patch_hf(state.model, inf_llm_config.type, **inf_llm_config)
     yield
 
-from backend.endpoints.chat import router as chat_router
-from backend.endpoints.model import router as model_router
+from backend.routers.model.routes import model_router
+from backend.routers.context.routes import context_router
 
 # Create FastAPI app
 app = FastAPI(
@@ -57,8 +57,8 @@ app.add_middleware(
 )
 
 # Include API routers
-app.include_router(chat_router)
 app.include_router(model_router)
+app.include_router(context_router)
 
 # Optional: allow running with `python backend/main.py`
 if __name__ == "__main__":

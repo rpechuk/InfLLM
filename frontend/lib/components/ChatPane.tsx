@@ -1,8 +1,9 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
-import { streamChatResponse } from "@/api/chat";
+import { streamChatResponse, createNewChat, checkModelReady } from "@/api/chat";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { FaPlus, FaSpinner } from "react-icons/fa";
 
 interface Message {
   role: "user" | "model";
@@ -15,14 +16,58 @@ export default function ChatPane() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isModelReady, setIsModelReady] = useState<boolean>(false);
+  const [isCheckingModel, setIsCheckingModel] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isCreatingChat, setIsCreatingChat] = useState(false);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    let stopped = false;
+    const poll = async () => {
+      setIsCheckingModel(true);
+      try {
+        await checkModelReady();
+        setIsModelReady(true);
+        setError(null);
+        setIsCheckingModel(false);
+        stopped = true;
+        if (interval) clearInterval(interval);
+      } catch (err) {
+        setIsModelReady(false);
+        setError("Model is not ready. Please wait...");
+        setIsCheckingModel(true);
+      }
+    };
+    poll();
+    interval = setInterval(() => {
+      if (!stopped) poll();
+    }, 2000);
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, []);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, isGenerating]);
 
-  // API stub for sending a message
+  async function handleNewChat() {
+    setIsCreatingChat(true);
+    setError(null);
+    try {
+      await createNewChat();
+      setMessages([]);
+    } catch (err) {
+      setError("Failed to create new chat. Please try again.");
+    } finally {
+      setIsCreatingChat(false);
+    }
+  }
+
   async function sendMessage() {
-    if (!input.trim() || isGenerating) return;
+    if (!input.trim() || isGenerating || isCreatingChat || !isModelReady) return;
+    setError(null);
     setMessages((msgs) => [...msgs, { role: "user", content: input }]);
     const userInput = input;
     setInput("");
@@ -32,10 +77,6 @@ export default function ChatPane() {
     try {
       await streamChatResponse(userInput, (token) => {
         modelReply += token;
-        console.debug(
-          "[ChatPane] modelReply so far:",
-          JSON.stringify(modelReply),
-        );
         setMessages((msgs) => {
           const updated = [...msgs];
           // Find the last model message (should be the last one)
@@ -124,39 +165,66 @@ export default function ChatPane() {
   };
 
   return (
-    <div className="flex h-full w-full flex-1 flex-col">
-      {/* Chat area */}
-      <div className="flex-1 overflow-y-auto rounded-t-lg border border-gray-700 bg-gray-900 shadow-inner">
-        <div className="p-6">
-          {messages.map((msg, i) => (
-            <div key={i} className="mb-4">
-              <span
-                className={`mb-1 block font-mono font-bold ${msg.role === "user" ? "text-blue-400" : "text-green-400"}`}
-              >
-                {msg.role === "user" ? "You:" : "Model:"}
-              </span>
-              {msg.role === "model" ? (
-                <div className="font-mono text-base whitespace-pre-wrap text-green-200">
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
-                    components={markdownComponents}
-                  >
-                    {msg.content}
-                  </ReactMarkdown>
-                </div>
-              ) : (
-                <span className="block font-mono text-base whitespace-pre-line text-blue-200">
-                  {msg.content}
-                </span>
-              )}
-            </div>
-          ))}
-          <div ref={messagesEndRef} />
+    <div className="flex h-full w-full flex-1 flex-col bg-gray-950 rounded-lg shadow-lg border border-gray-800">
+      {/* New Chat button */}
+      <div className="flex items-center justify-between border-b border-gray-800 bg-gray-900 px-8 py-4 rounded-t-lg">
+        <button
+          className={`flex items-center gap-2 rounded bg-green-600 px-5 py-2 font-bold text-white hover:bg-green-700 disabled:opacity-50 transition-colors${(isGenerating || isCheckingModel || isCreatingChat || !isModelReady) ? ' cursor-not-allowed' : ' cursor-pointer'}`}
+          onClick={handleNewChat}
+          disabled={isGenerating || isCheckingModel || isCreatingChat || !isModelReady}
+        >
+          {isCreatingChat ? (
+            <span className="flex items-center">
+              <FaSpinner className="mr-2 animate-spin" />
+              Creating...
+            </span>
+          ) : (
+            <span className="flex items-center"><FaPlus className="mr-2" /> New Chat</span>
+          )}
+        </button>
+        {isCheckingModel && (
+          <span className="ml-4 flex items-center text-sm text-gray-400">
+            <FaSpinner className="mr-2 animate-spin" />
+            Checking model...
+          </span>
+        )}
+      </div>
+      {/* Error message */}
+      {error && (
+        <div className="bg-red-800 text-red-200 px-8 py-2 text-sm rounded-b-none rounded-t-none">
+          {error}
         </div>
+      )}
+      {/* Chat area */}
+      <div className="flex-1 overflow-y-auto border-x border-gray-800 bg-gray-900 shadow-inner px-8 py-6 rounded-b-lg">
+        {messages.map((msg, i) => (
+          <div key={i} className="mb-6">
+            <span
+              className={`mb-1 block font-mono font-bold ${msg.role === "user" ? "text-blue-400" : "text-green-400"}`}
+            >
+              {msg.role === "user" ? "You:" : "Model:"}
+            </span>
+            {msg.role === "model" ? (
+              <div className="font-mono text-base whitespace-pre-wrap text-green-200">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={markdownComponents}
+                >
+                  {msg.content}
+                </ReactMarkdown>
+              </div>
+            ) : (
+              <span className="block font-mono text-base whitespace-pre-line text-blue-200">
+                {msg.content}
+              </span>
+            )}
+          </div>
+        ))}
+        <div ref={messagesEndRef} />
       </div>
       {/* Prompt input */}
       <form
-        className="flex h-24 items-end gap-2 border-t border-gray-700 bg-gray-900 px-4 py-3"
+        className="flex h-24 items-end gap-3 border-t border-gray-800 bg-gray-900 px-8 py-4 rounded-b-lg"
         onSubmit={(e) => {
           e.preventDefault();
           sendMessage();
@@ -164,7 +232,7 @@ export default function ChatPane() {
       >
         <textarea
           ref={textareaRef}
-          className="h-full flex-1 resize-none rounded border border-gray-700 bg-gray-800 px-3 py-2 font-mono text-sm text-gray-100 focus:ring-2 focus:ring-blue-400 focus:outline-none"
+          className={`h-full flex-1 resize-none rounded border border-gray-800 bg-gray-800 px-3 py-2 font-mono text-sm text-gray-100 focus:ring-2 focus:ring-blue-400 focus:outline-none${(isGenerating || isCheckingModel || isCreatingChat || !isModelReady) ? ' cursor-not-allowed' : ' cursor-text'}`}
           placeholder="Prompt..."
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -175,39 +243,17 @@ export default function ChatPane() {
               sendMessage();
             }
           }}
+          disabled={isGenerating || isCheckingModel || isCreatingChat || !isModelReady}
         />
         <button
           type="submit"
-          className="flex h-full min-w-[100px] items-center justify-center rounded bg-blue-500 px-4 py-2 font-bold text-white transition-colors hover:bg-blue-600"
-          disabled={isGenerating}
+          className={`flex h-full min-w-[100px] items-center justify-center rounded bg-blue-500 px-4 py-2 font-bold text-white transition-colors hover:bg-blue-600 disabled:opacity-50${(isGenerating || isCheckingModel || isCreatingChat || !isModelReady) ? ' cursor-not-allowed' : ' cursor-pointer'}`}
+          disabled={isGenerating || isCheckingModel || isCreatingChat || !isModelReady}
         >
-          {isGenerating ? (
-            <>
-              <svg
-                className="mr-2 h-5 w-5 animate-spin text-white"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                ></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-                ></path>
-              </svg>
-              Generating...
-            </>
-          ) : (
-            "Send"
-          )}
+          <span className="flex items-center justify-center w-full">
+            {isGenerating && <FaSpinner className="mr-2 animate-spin" />}
+            Send
+          </span>
         </button>
       </form>
     </div>
