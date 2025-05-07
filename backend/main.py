@@ -2,18 +2,19 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from backend import state
+import torch
 
 # Hardcoded CLI-like config (replace with actual values as needed)
 MODEL_PATH = "Qwen/Qwen1.5-4B-Chat"
 INF_LLM_CONFIG_PATH = "config/working/qwen-4b-inf-llm.yaml"
-NUM_GPUS = 4
+NUM_GPUS = torch.cuda.device_count() if torch.cuda.is_available() else 0
 MAX_GPU_MEMORY = "10GiB"
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Load model and tokenizer at startup
     from inf_llm import chat as inf_llm_chat
-    import torch
     from omegaconf import OmegaConf
     inf_llm_config_full = OmegaConf.load(INF_LLM_CONFIG_PATH)
     inf_llm_config = inf_llm_config_full["model"]
@@ -37,6 +38,7 @@ async def lifespan(app: FastAPI):
     yield
 
 from backend.endpoints.chat import router as chat_router
+from backend.endpoints.model import router as model_router
 
 # Create FastAPI app
 app = FastAPI(
@@ -56,6 +58,7 @@ app.add_middleware(
 
 # Include API routers
 app.include_router(chat_router)
+app.include_router(model_router)
 
 # Optional: allow running with `python backend/main.py`
 if __name__ == "__main__":
