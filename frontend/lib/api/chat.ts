@@ -38,3 +38,98 @@ export async function checkModelReady(): Promise<any> {
   }
   return response.json();
 }
+
+// Types
+export interface Message {
+  role: "user" | "model";
+  content: string;
+  files?: { name: string }[];
+}
+
+export interface UploadedFile {
+  name: string;
+  content: string;
+}
+
+// Polling for model readiness
+export function pollModelReady({
+  onReady,
+  onError,
+  onChecking,
+  debugMode,
+  intervalMs = 2000,
+}: {
+  onReady: () => void;
+  onError: (err: any) => void;
+  onChecking: () => void;
+  debugMode: boolean;
+  intervalMs?: number;
+}): () => void {
+  if (debugMode) {
+    onReady();
+    return () => { };
+  }
+  let stopped = false;
+  let interval: NodeJS.Timeout | null = null;
+  const poll = async () => {
+    onChecking();
+    try {
+      await checkModelReady();
+      onReady();
+      stopped = true;
+      if (interval) clearInterval(interval);
+    } catch (err) {
+      onError(err);
+    }
+  };
+  poll();
+  interval = setInterval(() => {
+    if (!stopped) poll();
+  }, intervalMs);
+  return () => {
+    if (interval) clearInterval(interval);
+  };
+}
+
+// File reading logic
+export async function readTextFiles(files: File[]): Promise<UploadedFile[]> {
+  const textFiles = files.filter(
+    (file) =>
+      file.type.startsWith("text") ||
+      file.type === "" ||
+      file.name.endsWith(".md") ||
+      file.name.endsWith(".py") ||
+      file.name.endsWith(".js") ||
+      file.name.endsWith(".ts") ||
+      file.name.endsWith(".json")
+  );
+  const readPromises = textFiles.map(
+    (file) =>
+      new Promise<UploadedFile>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve({ name: file.name, content: reader.result as string });
+        reader.onerror = () => reject(reader.error);
+        reader.readAsText(file);
+      })
+  );
+  return Promise.all(readPromises);
+}
+
+// Message formatting
+export function formatInputWithFiles(input: string, files: UploadedFile[]): string {
+  if (files.length === 0) return input;
+  return (
+    `# File Context:\n` +
+    files
+      .map((f) => `${f.name}\n\u0060\u0060\u0060\n${f.content}\n\u0060\u0060\u0060`)
+      .join("\n") +
+    `\n---\n# User Message:\n${input}`
+  );
+}
+
+// Simulate model reply for debug mode
+export function simulateModelReply(input: string, cb: (reply: string) => void) {
+  setTimeout(() => {
+    cb(`[Debug Mode] Echo:\n${input}`);
+  }, 600);
+}

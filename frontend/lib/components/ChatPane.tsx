@@ -1,220 +1,230 @@
 "use client";
-import { useState, useRef, useEffect, DragEvent } from "react";
-import { streamChatResponse, createNewChat, checkModelReady } from "@/api/chat";
+import { useRef, useEffect } from "react";
+import { streamChatResponse, createNewChat, checkModelReady, pollModelReady, readTextFiles, formatInputWithFiles, simulateModelReply, Message, UploadedFile } from "@/api/chat";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { FaPlus, FaSpinner } from "react-icons/fa";
+import { FaPlus, FaSpinner, FaFileAlt } from "react-icons/fa";
+import FilePill from "./FilePill";
+import { useReducer } from "react";
+import MarkdownRenderer from "./MarkdownRenderer";
 
-interface Message {
-  role: "user" | "model";
-  content: string;
-  files?: UploadedFile[];
+// ChatPane state and actions
+interface ChatPaneState {
+  messages: Message[];
+  input: string;
+  isLoading: boolean;
+  isModelReady: boolean;
+  error: string | null;
+  isDragActive: boolean;
+  uploadedFiles: UploadedFile[];
+  debugMode: boolean;
+  isCheckingModel?: boolean;
+  isCreatingChat?: boolean;
+  isReadingFiles?: boolean;
 }
 
-interface UploadedFile {
-  name: string;
-  content: string;
+type ChatPaneAction =
+  | { type: "SET_INPUT"; input: string }
+  | { type: "SET_MESSAGES"; messages: Message[] }
+  | { type: "ADD_MESSAGE"; message: Message }
+  | { type: "UPDATE_LAST_MODEL_MESSAGE"; content: string }
+  | { type: "SET_IS_LOADING"; value: boolean }
+  | { type: "SET_IS_MODEL_READY"; value: boolean }
+  | { type: "SET_ERROR"; error: string | null }
+  | { type: "SET_IS_DRAG_ACTIVE"; value: boolean }
+  | { type: "SET_UPLOADED_FILES"; files: UploadedFile[] }
+  | { type: "SET_DEBUG_MODE"; value: boolean }
+  | { type: "SET_IS_CHECKING_MODEL"; value: boolean }
+  | { type: "SET_IS_CREATING_CHAT"; value: boolean }
+  | { type: "SET_IS_READING_FILES"; value: boolean };
+
+function chatPaneReducer(state: ChatPaneState, action: ChatPaneAction): ChatPaneState {
+  switch (action.type) {
+    case "SET_INPUT":
+      return { ...state, input: action.input };
+    case "SET_MESSAGES":
+      return { ...state, messages: action.messages };
+    case "ADD_MESSAGE":
+      return { ...state, messages: [...state.messages, action.message] };
+    case "UPDATE_LAST_MODEL_MESSAGE": {
+      const idx = [...state.messages].map((m) => m.role).lastIndexOf("model");
+      if (idx === -1) return state;
+      const updated = [...state.messages];
+      updated[idx] = { ...updated[idx], content: action.content };
+      return { ...state, messages: updated };
+    }
+    case "SET_IS_LOADING":
+      return { ...state, isLoading: action.value };
+    case "SET_IS_MODEL_READY":
+      return { ...state, isModelReady: action.value };
+    case "SET_ERROR":
+      return { ...state, error: action.error };
+    case "SET_IS_DRAG_ACTIVE":
+      return { ...state, isDragActive: action.value };
+    case "SET_UPLOADED_FILES":
+      return { ...state, uploadedFiles: action.files };
+    case "SET_DEBUG_MODE":
+      return { ...state, debugMode: action.value };
+    case "SET_IS_CHECKING_MODEL":
+      return { ...state, isCheckingModel: action.value };
+    case "SET_IS_CREATING_CHAT":
+      return { ...state, isCreatingChat: action.value };
+    case "SET_IS_READING_FILES":
+      return { ...state, isReadingFiles: action.value };
+    default:
+      return state;
+  }
 }
 
-export default function ChatPane() {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState("");
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [isModelReady, setIsModelReady] = useState<boolean>(false);
-  const [isCheckingModel, setIsCheckingModel] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [isCreatingChat, setIsCreatingChat] = useState(false);
-  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
-  const [isDragActive, setIsDragActive] = useState(false);
+function useChatPane() {
+  const [state, dispatch] = useReducer(chatPaneReducer, {
+    messages: [],
+    input: "",
+    isLoading: false,
+    isModelReady: false,
+    error: null,
+    isDragActive: false,
+    uploadedFiles: [],
+    debugMode: false,
+    isCheckingModel: false,
+    isCreatingChat: false,
+    isReadingFiles: false,
+  });
 
+  // Helper to set loading state
+  function setLoading(value: boolean) {
+    dispatch({ type: "SET_IS_LOADING", value });
+  }
+
+  // Poll model ready
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
-    let stopped = false;
-    const poll = async () => {
-      setIsCheckingModel(true);
-      try {
-        await checkModelReady();
-        setIsModelReady(true);
-        setError(null);
-        setIsCheckingModel(false);
-        stopped = true;
-        if (interval) clearInterval(interval);
-      } catch (err) {
-        setIsModelReady(false);
-        setError("Model is not ready. Please wait...");
-        setIsCheckingModel(true);
-      }
-    };
-    poll();
-    interval = setInterval(() => {
-      if (!stopped) poll();
-    }, 2000);
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, []);
+    let cleanup: (() => void) | undefined;
+    dispatch({ type: "SET_IS_CHECKING_MODEL", value: true });
+    setLoading(true);
+    cleanup = pollModelReady({
+      onReady: () => {
+        dispatch({ type: "SET_IS_MODEL_READY", value: true });
+        dispatch({ type: "SET_IS_CHECKING_MODEL", value: false });
+        setLoading(false);
+        dispatch({ type: "SET_ERROR", error: null });
+      },
+      onError: (err) => {
+        dispatch({ type: "SET_IS_MODEL_READY", value: false });
+        dispatch({ type: "SET_ERROR", error: "Model is not ready. Please wait..." });
+        dispatch({ type: "SET_IS_CHECKING_MODEL", value: true });
+        setLoading(true);
+      },
+      onChecking: () => {
+        dispatch({ type: "SET_IS_CHECKING_MODEL", value: true });
+        setLoading(true);
+      },
+      debugMode: state.debugMode,
+    });
+    return cleanup;
+  }, [state.debugMode]);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isGenerating]);
+  // Message sending
+  async function sendMessage() {
+    if (!state.input.trim() || state.isLoading || state.isCheckingModel || state.isCreatingChat || !state.isModelReady) return;
+    dispatch({ type: "SET_ERROR", error: null });
+    const filesToSend = [...state.uploadedFiles];
+    dispatch({ type: "ADD_MESSAGE", message: { role: "user", content: state.input, files: filesToSend.map(f => ({ name: f.name })) } });
+    dispatch({ type: "SET_INPUT", input: "" });
+    dispatch({ type: "SET_UPLOADED_FILES", files: [] });
+    dispatch({ type: "ADD_MESSAGE", message: { role: "model", content: "" } });
+    setLoading(true);
+    if (state.debugMode) {
+      simulateModelReply(state.input, (reply) => {
+        dispatch({ type: "UPDATE_LAST_MODEL_MESSAGE", content: reply });
+        setLoading(false);
+      });
+      return;
+    }
+    let modelReply = "";
+    try {
+      await streamChatResponse(formatInputWithFiles(state.input, filesToSend), (token) => {
+        modelReply += token;
+        dispatch({ type: "UPDATE_LAST_MODEL_MESSAGE", content: modelReply });
+      });
+    } catch (err) {
+      dispatch({ type: "ADD_MESSAGE", message: { role: "model", content: `[Error: ${err}]` } });
+    } finally {
+      setLoading(false);
+    }
+  }
 
+  // New chat
   async function handleNewChat() {
-    setIsCreatingChat(true);
-    setError(null);
+    dispatch({ type: "SET_IS_CREATING_CHAT", value: true });
+    setLoading(true);
+    dispatch({ type: "SET_ERROR", error: null });
     try {
       await createNewChat();
-      setMessages([]);
+      dispatch({ type: "SET_MESSAGES", messages: [] });
     } catch (err) {
-      setError("Failed to create new chat. Please try again.");
+      dispatch({ type: "SET_ERROR", error: "Failed to create new chat. Please try again." });
     } finally {
-      setIsCreatingChat(false);
+      dispatch({ type: "SET_IS_CREATING_CHAT", value: false });
+      setLoading(false);
     }
   }
 
   // Drag and drop handlers
-  function handleDragOver(e: DragEvent<HTMLDivElement>) {
+  function handleDragOver(e: React.DragEvent<HTMLDivElement>) {
     e.preventDefault();
-    setIsDragActive(true);
+    e.stopPropagation();
+    dispatch({ type: "SET_IS_DRAG_ACTIVE", value: true });
   }
-  function handleDragLeave(e: DragEvent<HTMLDivElement>) {
+  function handleDragLeave(e: React.DragEvent<HTMLDivElement>) {
     e.preventDefault();
-    setIsDragActive(false);
+    e.stopPropagation();
+    dispatch({ type: "SET_IS_DRAG_ACTIVE", value: false });
   }
-  function handleDrop(e: DragEvent<HTMLDivElement>) {
+  async function handleDrop(e: React.DragEvent<HTMLDivElement>) {
     e.preventDefault();
-    setIsDragActive(false);
-    const files = Array.from(e.dataTransfer.files);
-    files.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setUploadedFiles((prev) => [
-          ...prev,
-          { name: file.name, content: event.target?.result as string },
-        ]);
-      };
-      reader.readAsText(file);
-    });
-  }
-  function handleRemoveFile(idx: number) {
-    setUploadedFiles((prev) => prev.filter((_, i) => i !== idx));
-  }
-
-  async function sendMessage() {
-    if (!input.trim() || isGenerating || isCreatingChat || !isModelReady) return;
-    setError(null);
-    // Format message with file context if files are uploaded
-    let formattedMessage = input;
-    if (uploadedFiles.length > 0) {
-      const context = uploadedFiles
-        .map(
-          (f) => `${f.name}\n\u0060\u0060\u0060\n${f.content}\n\u0060\u0060\u0060`
-        )
-        .join("\n");
-      formattedMessage = `# Context\n${context}\n---\n# Request\n${input}`;
-    }
-    setMessages((msgs) => [
-      ...msgs,
-      {
-        role: "user",
-        content: input,
-        files: uploadedFiles.length > 0 ? [...uploadedFiles] : undefined,
-      } as any, // We'll handle files in rendering
-    ]);
-    setInput("");
-    setUploadedFiles([]);
-    let modelReply = "";
-    setMessages((msgs) => [...msgs, { role: "model", content: "" }]);
-    setIsGenerating(true);
+    e.stopPropagation();
+    dispatch({ type: "SET_IS_DRAG_ACTIVE", value: false });
+    dispatch({ type: "SET_IS_READING_FILES", value: true });
+    setLoading(true);
     try {
-      await streamChatResponse(formattedMessage, (token) => {
-        modelReply += token;
-        setMessages((msgs) => {
-          const updated = [...msgs];
-          const idx = updated.map((m) => m.role).lastIndexOf("model");
-          if (idx !== -1) updated[idx] = { role: "model", content: modelReply };
-          return updated;
-        });
-      });
+      const files = Array.from(e.dataTransfer.files);
+      const results = await readTextFiles(files);
+      dispatch({ type: "SET_UPLOADED_FILES", files: [...state.uploadedFiles, ...results] });
     } catch (err) {
-      setMessages((msgs) => [
-        ...msgs,
-        { role: "model", content: `[Error: ${err}]` },
-      ]);
+      dispatch({ type: "SET_ERROR", error: "Failed to read one or more files." });
     } finally {
-      setIsGenerating(false);
+      dispatch({ type: "SET_IS_READING_FILES", value: false });
+      setLoading(false);
     }
   }
 
-  const markdownComponents = {
-    code({
-      inline,
-      className,
-      children,
-      ...props
-    }: React.ComponentProps<"code"> & { inline?: boolean }) {
-      return inline ? (
-        <code className="rounded bg-gray-800 px-1 py-0.5" {...props}>
-          {children}
-        </code>
-      ) : (
-        <pre className="my-2 overflow-x-auto rounded bg-gray-800 p-2">
-          <code className={className}>{children}</code>
-        </pre>
-      );
-    },
-    p({ children, ...props }: any) {
-      if (
-        Array.isArray(children) &&
-        children.length === 1 &&
-        (children[0] as any)?.type === "pre"
-      ) {
-        return <>{children}</>;
-      }
-      return (
-        <p className="mb-2" {...props}>
-          {children}
-        </p>
-      );
-    },
-    a({ ...props }: any) {
-      return (
-        <a
-          className="text-blue-400 underline"
-          target="_blank"
-          rel="noopener noreferrer"
-          {...props}
-        />
-      );
-    },
-    table({ ...props }: any) {
-      return <table className="my-2 border border-gray-700" {...props} />;
-    },
-    th({ ...props }: any) {
-      return (
-        <th
-          className="border border-gray-700 bg-gray-700 px-2 py-1"
-          {...props}
-        />
-      );
-    },
-    td({ ...props }: any) {
-      return <td className="border border-gray-700 px-2 py-1" {...props} />;
-    },
-    li({ ...props }: any) {
-      return <li className="ml-4 list-disc" {...props} />;
-    },
-    ul({ ...props }: any) {
-      return <ul className="mb-2 ml-6 list-disc" {...props} />;
-    },
-    ol({ ...props }: any) {
-      return <ol className="mb-2 ml-6 list-decimal" {...props} />;
-    },
-    hr() {
-      return <hr className="my-4 border-t border-gray-700" />;
-    },
+  return {
+    state,
+    dispatch,
+    sendMessage,
+    handleNewChat,
+    handleDragOver,
+    handleDragLeave,
+    handleDrop,
   };
+}
+
+export default function ChatPane() {
+  const {
+    state,
+    dispatch,
+    sendMessage,
+    handleNewChat,
+    handleDragOver,
+    handleDragLeave,
+    handleDrop,
+  } = useChatPane();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [state.messages, state.isLoading]);
 
   return (
     <div
@@ -224,19 +234,37 @@ export default function ChatPane() {
       onDrop={handleDrop}
     >
       {/* Drag overlay */}
-      {isDragActive && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 rounded-lg">
-          <span className="text-2xl text-white font-bold">Drop file(s) to add as context</span>
+      {state.isDragActive && (
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black bg-opacity-70 rounded-lg pointer-events-none select-none">
+          <FaFileAlt className="text-5xl text-blue-300 mb-4 drop-shadow-lg" />
+          <span className="text-2xl font-bold text-white">Drop your file here to add it as context</span>
+          {state.isReadingFiles && (
+            <span className="mt-4 flex items-center text-lg text-blue-200"><FaSpinner className="mr-2 animate-spin" /> Reading file(s)...</span>
+          )}
         </div>
       )}
-      {/* New Chat button */}
+      {/* File pills above prompt */}
+      {state.uploadedFiles.length > 0 && (
+        <div className="absolute left-0 right-0 bottom-28 flex flex-wrap items-center px-8 z-30 pointer-events-none select-none">
+          {state.uploadedFiles.map((file, idx) => (
+            <span key={file.name + idx} className="pointer-events-auto select-auto">
+              <FilePill
+                name={file.name}
+                onRemove={() => dispatch({ type: "SET_UPLOADED_FILES", files: state.uploadedFiles.filter((_, i) => i !== idx) })}
+                inline={false}
+              />
+            </span>
+          ))}
+        </div>
+      )}
+      {/* New Chat button and Debug toggle */}
       <div className="flex items-center justify-between border-b border-gray-800 bg-gray-900 px-8 py-4 rounded-t-lg">
         <button
-          className={`flex items-center gap-2 rounded bg-green-600 px-5 py-2 font-bold text-white hover:bg-green-700 disabled:opacity-50 transition-colors${(isGenerating || isCheckingModel || isCreatingChat || !isModelReady) ? ' cursor-not-allowed' : ' cursor-pointer'}`}
+          className={`flex items-center gap-2 rounded bg-green-600 px-5 py-2 font-bold text-white hover:bg-green-700 disabled:opacity-50 transition-colors${(state.isLoading || state.isCheckingModel || state.isCreatingChat || !state.isModelReady) ? ' cursor-not-allowed' : ' cursor-pointer'}`}
           onClick={handleNewChat}
-          disabled={isGenerating || isCheckingModel || isCreatingChat || !isModelReady}
+          disabled={state.isLoading || state.isCheckingModel || state.isCreatingChat || !state.isModelReady}
         >
-          {isCreatingChat ? (
+          {state.isCreatingChat ? (
             <span className="flex items-center">
               <FaSpinner className="mr-2 animate-spin" />
               Creating...
@@ -245,55 +273,59 @@ export default function ChatPane() {
             <span className="flex items-center"><FaPlus className="mr-2" /> New Chat</span>
           )}
         </button>
-        {isCheckingModel && (
+        <div className="flex items-center ml-4">
+          <label className="flex items-center cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={state.debugMode}
+              onChange={() => dispatch({ type: "SET_DEBUG_MODE", value: !state.debugMode })}
+              className="form-checkbox h-4 w-4 text-blue-600 rounded mr-2"
+            />
+            <span className="text-sm text-blue-300 font-mono">Debug Mode</span>
+          </label>
+        </div>
+        {!state.debugMode && state.isCheckingModel && (
           <span className="ml-4 flex items-center text-sm text-gray-400">
             <FaSpinner className="mr-2 animate-spin" />
             Checking model...
           </span>
         )}
       </div>
+      {state.debugMode && (
+        <div className="bg-blue-900 text-blue-200 px-8 py-2 text-sm rounded-b-none rounded-t-none text-center font-mono">
+          Debug mode is <b>ON</b>. Messages will not be sent to a real model.
+        </div>
+      )}
       {/* Error message */}
-      {error && (
+      {state.error && (
         <div className="bg-red-800 text-red-200 px-8 py-2 text-sm rounded-b-none rounded-t-none">
-          {error}
+          {state.error}
         </div>
       )}
       {/* Chat area */}
       <div className="flex-1 overflow-y-auto border-x border-gray-800 bg-gray-900 shadow-inner px-8 py-6 rounded-b-lg">
-        {messages.map((msg: any, i) => (
+        {state.messages.map((msg, i) => (
           <div key={i} className="mb-6">
             <span
               className={`mb-1 block font-mono font-bold ${msg.role === "user" ? "text-blue-400" : "text-green-400"}`}
             >
               {msg.role === "user" ? (
-                <>
+                <span className="flex items-center">
                   You:
                   {msg.files && msg.files.length > 0 && (
-                    <span className="ml-2 flex flex-wrap gap-2">
-                      {msg.files.map((f: UploadedFile, idx: number) => (
-                        <span
-                          key={idx}
-                          className="inline-flex items-center bg-gray-700 text-xs text-gray-100 rounded-full px-3 py-1 mr-1 mt-1"
-                        >
-                          {f.name}
-                        </span>
+                    <span className="flex flex-wrap ml-2">
+                      {msg.files.map((file, idx) => (
+                        <FilePill key={file.name + idx} name={file.name} inline />
                       ))}
                     </span>
                   )}
-                </>
+                </span>
               ) : (
                 "Model:"
               )}
             </span>
             {msg.role === "model" ? (
-              <div className="font-mono text-base whitespace-pre-wrap text-green-200">
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  components={markdownComponents}
-                >
-                  {msg.content}
-                </ReactMarkdown>
-              </div>
+              <MarkdownRenderer>{msg.content}</MarkdownRenderer>
             ) : (
               <span className="block font-mono text-base whitespace-pre-line text-blue-200">
                 {msg.content}
@@ -303,27 +335,6 @@ export default function ChatPane() {
         ))}
         <div ref={messagesEndRef} />
       </div>
-      {/* File pills above prompt */}
-      {uploadedFiles.length > 0 && (
-        <div className="absolute left-0 right-0 bottom-28 flex flex-wrap gap-2 px-8 z-20">
-          {uploadedFiles.map((file, idx) => (
-            <span
-              key={idx}
-              className="inline-flex items-center bg-gray-700 text-xs text-gray-100 rounded-full px-3 py-1 relative group"
-            >
-              {file.name}
-              <button
-                className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-red-400"
-                onClick={() => handleRemoveFile(idx)}
-                type="button"
-                tabIndex={-1}
-              >
-                ×
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
       {/* Prompt input */}
       <form
         className="flex h-24 items-end gap-3 border-t border-gray-800 bg-gray-900 px-8 py-4 rounded-b-lg"
@@ -334,10 +345,10 @@ export default function ChatPane() {
       >
         <textarea
           ref={textareaRef}
-          className={`h-full flex-1 resize-none rounded border border-gray-800 bg-gray-800 px-3 py-2 font-mono text-sm text-gray-100 focus:ring-2 focus:ring-blue-400 focus:outline-none${(isGenerating || isCheckingModel || isCreatingChat || !isModelReady) ? ' cursor-not-allowed' : ' cursor-text'}`}
+          className={`h-full flex-1 resize-none rounded border border-gray-800 bg-gray-800 px-3 py-2 font-mono text-sm text-gray-100 focus:ring-2 focus:ring-blue-400 focus:outline-none${(state.isLoading || state.isCheckingModel || state.isCreatingChat || !state.isModelReady) ? ' cursor-not-allowed' : ' cursor-text'}`}
           placeholder="Prompt..."
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
+          value={state.input}
+          onChange={(e) => dispatch({ type: "SET_INPUT", input: e.target.value })}
           rows={1}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
@@ -345,15 +356,15 @@ export default function ChatPane() {
               sendMessage();
             }
           }}
-          disabled={isGenerating || isCheckingModel || isCreatingChat || !isModelReady}
+          disabled={state.isLoading || state.isCheckingModel || state.isCreatingChat || !state.isModelReady}
         />
         <button
           type="submit"
-          className={`flex h-full min-w-[100px] items-center justify-center rounded bg-blue-500 px-4 py-2 font-bold text-white transition-colors hover:bg-blue-600 disabled:opacity-50${(isGenerating || isCheckingModel || isCreatingChat || !isModelReady) ? ' cursor-not-allowed' : ' cursor-pointer'}`}
-          disabled={isGenerating || isCheckingModel || isCreatingChat || !isModelReady}
+          className={`flex h-full min-w-[100px] items-center justify-center rounded bg-blue-500 px-4 py-2 font-bold text-white transition-colors hover:bg-blue-600 disabled:opacity-50${(state.isLoading || state.isCheckingModel || state.isCreatingChat || !state.isModelReady) ? ' cursor-not-allowed' : ' cursor-pointer'}`}
+          disabled={state.isLoading || state.isCheckingModel || state.isCreatingChat || !state.isModelReady}
         >
           <span className="flex items-center justify-center w-full">
-            {isGenerating && <FaSpinner className="mr-2 animate-spin" />}
+            {state.isLoading && <FaSpinner className="mr-2 animate-spin" />}
             Send
           </span>
         </button>
