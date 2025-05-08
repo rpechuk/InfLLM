@@ -1,8 +1,6 @@
 "use client";
 import { useRef, useEffect } from "react";
-import { streamChatResponse, createNewChat, checkModelReady, pollModelReady, readTextFiles, formatInputWithFiles, simulateModelReply, Message, UploadedFile } from "@/api/chat";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { streamChatResponse, createNewChat, pollModelReady, readTextFiles, formatInputWithFiles, simulateModelReply, Message, UploadedFile } from "@/api/chat";
 import { FaPlus, FaSpinner, FaFileAlt } from "react-icons/fa";
 import FilePill from "./FilePill";
 import { useReducer } from "react";
@@ -284,26 +282,20 @@ export default function ChatPane() {
             <span className="text-sm text-blue-300 font-mono">Debug Mode</span>
           </label>
         </div>
-        {!state.debugMode && state.isCheckingModel && (
-          <span className="ml-4 flex items-center text-sm text-gray-400">
-            <FaSpinner className="mr-2 animate-spin" />
-            Checking model...
-          </span>
-        )}
       </div>
       {state.debugMode && (
-        <div className="bg-blue-900 text-blue-200 px-8 py-2 text-sm rounded-b-none rounded-t-none text-center font-mono">
+        <div className="bg-blue-900 text-blue-200 px-8 py-2 text-sm text-center font-mono">
           Debug mode is <b>ON</b>. Messages will not be sent to a real model.
         </div>
       )}
       {/* Error message */}
       {state.error && (
-        <div className="bg-red-800 text-red-200 px-8 py-2 text-sm rounded-b-none rounded-t-none">
+        <div className="bg-red-800 text-red-200 px-8 py-2 text-sm">
           {state.error}
         </div>
       )}
       {/* Chat area */}
-      <div className="flex-1 overflow-y-auto border-x border-gray-800 bg-gray-900 shadow-inner px-8 py-6 rounded-b-lg">
+      <div className="flex-1 overflow-y-auto bg-gray-900 shadow-inner px-8 py-6">
         {state.messages.map((msg, i) => (
           <div key={i} className="mb-6">
             <span
@@ -333,6 +325,12 @@ export default function ChatPane() {
             )}
           </div>
         ))}
+        {!state.debugMode && state.isCheckingModel && (
+          <span className="ml-4 flex items-center justify-center text-2xl text-gray-400 w-full h-full">
+            <FaSpinner className="mr-2 animate-spin" />
+            Waiting for model to load...
+          </span>
+        )}
         <div ref={messagesEndRef} />
       </div>
       {/* Prompt input */}

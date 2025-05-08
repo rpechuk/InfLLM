@@ -1,5 +1,6 @@
 import ChatPane from "@/components/ChatPane";
 import Pane from "@/components/Pane";
+import ContextManagerPanel from "@/components/ContextManagerPanel";
 
 export default function Home() {
   return (
@@ -9,16 +10,7 @@ export default function Home() {
           <ChatPane />
         </Pane>
         <div className="flex h-full w-5/12 flex-col gap-4">
-          <Pane className="h-3/4">
-            <div className="flex h-full w-full items-center justify-center">
-              <h1 className="text-2xl font-bold">PLACEHOLDER 1</h1>
-            </div>
-          </Pane>
-          <Pane className="h-1/4">
-            <div className="flex h-full w-full items-center justify-center">
-              <h1 className="text-2xl font-bold">PLACEHOLDER 2</h1>
-            </div>
-          </Pane>
+          <ContextManagerPanel />
         </div>
       </div>
     </div>
