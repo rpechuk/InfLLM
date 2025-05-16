@@ -34,9 +34,14 @@ class MemoryUnit:
         cache: CudaCache, 
         load_to_cache: bool = False, 
         pin_memory: bool = False,
+        scores: Optional[torch.Tensor] = None,
+        block_start: int = None,
+        block_end: int = None,
     ):
         self.cache = cache
-
+        self.block_start = block_start
+        self.block_end = block_end
+        self.scores = scores
         if kv[0].is_cuda:
             cpu_data = tuple(_t.contiguous().to("cpu", non_blocking=True) for _t in kv)
         else:
@@ -108,6 +113,13 @@ class MemoryUnit:
         self.gpu_data = None
         self.cache.delete(self.gpu_data_id)
         self.gpu_data_id = None
+
+    def get_tokens_and_scores(self, input_ids):
+        if self.block_start is None or self.block_end is None:
+            raise ValueError("block_start and block_end must be set for MemoryUnit to get tokens.")
+        tokens = input_ids[self.block_start:self.block_end]
+        scores = self.scores.mean(dim=0)
+        return tokens, scores
 
 
 class VectorTensor:
@@ -684,7 +696,7 @@ class ContextManager:
         while global_remainder_len - self.block_size >= self.n_local:
             global_remainder_len -= self.block_size
             for u in range(self.num_units):
-                self.global_blocks[u].append((
+                self.global_blocks[u].append(
                     MemoryUnit(
                         (
                             self.global_remainder[0][u, :, global_remainder_st:global_remainder_st + self.block_size, :],
@@ -692,9 +704,12 @@ class ContextManager:
                         ),
                         self.cuda_cache,
                         False,
-                        self.pin_memory
+                        self.pin_memory,
+                        scores=self.global_remainder_local_score[u, :, global_remainder_st:global_remainder_st + self.block_size],
+                        block_start=global_remainder_st,
+                        block_end=global_remainder_st + self.block_size
                     )
-                ))
+                )
 
             global_block_k = self.get_block_k(
                 self.global_remainder[0][:, :, global_remainder_st:global_remainder_st + self.block_size, :],

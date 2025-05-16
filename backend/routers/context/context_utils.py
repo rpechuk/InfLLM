@@ -1,6 +1,6 @@
 import backend.state as state
 
-def extract_ctx_manager(model, layer_idx):
+def extract_ctx_manager(layer_idx):
     if len(state.model.model.layers) <= layer_idx:
         raise ValueError(f"Layer index {layer_idx} is out of range for the model with {len(state.model.model.layers)} layers.")
     if not hasattr(state.model.model.layers[layer_idx], "self_attn"):

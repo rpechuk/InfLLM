@@ -207,11 +207,11 @@ function useChatPane() {
   };
 }
 
-export default function ChatPane() {
+export default function ChatPane({ onChatFinished }: { onChatFinished?: () => void } = {}) {
   const {
     state,
     dispatch,
-    sendMessage,
+    sendMessage: origSendMessage,
     handleNewChat,
     handleDragOver,
     handleDragLeave,
@@ -219,6 +219,13 @@ export default function ChatPane() {
   } = useChatPane();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Wrap sendMessage to call onChatFinished after model reply is done
+  const sendMessage = async () => {
+    if (!state.input.trim() || state.isLoading || state.isCheckingModel || state.isCreatingChat || !state.isModelReady) return;
+    await origSendMessage();
+    if (onChatFinished) onChatFinished();
+  };
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });

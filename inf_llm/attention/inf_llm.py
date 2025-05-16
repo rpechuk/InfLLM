@@ -20,7 +20,6 @@ def inf_llm_forward(
     model=None,
     *args, **kwargs
 ):
-
     def forward(self, query : torch.Tensor,
                     key_value : torch.Tensor,
                     position_bias : Optional[torch.Tensor],
@@ -61,8 +60,7 @@ def inf_llm_forward(
                 perhead,
                 listeners=[file_listener(f'logs/cache{self.layer_idx}.log', model)] if DEBUG else None,
             )            
-        if DEBUG:
-            self._past_key_value = past_key_value
+        self._past_key_value = past_key_value
 
         local_q, local_k, local_v = h_q, h_k, h_v
         global_q, global_k, global_v = h_q, h_k, h_v

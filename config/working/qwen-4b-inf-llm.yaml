@@ -3,7 +3,7 @@ model:
   path: Qwen/Qwen1.5-4B-Chat
   block_size: 128
   n_init: 128
-  n_local: 4096
+  n_local: 512
   topk: 16
   repr_topk: 4
   max_cached_block: 32
