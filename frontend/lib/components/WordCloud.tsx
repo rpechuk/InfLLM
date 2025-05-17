@@ -61,9 +61,10 @@ const WordCloud: React.FC<WordCloudProps> = ({
       .size([width, height])
       .words(words.map((d: WordCloudWord) => ({ ...d })))
       .padding(5)
-      .rotate(() => (Math.random() > 0.5 ? 0 : 90))
+      .rotate((d: any) => (hashString(d.text) % 2 === 0 ? 0 : 90))
       .font("Impact")
       .fontSize((d: any) => fontSizeScale(d.value))
+      .random(() => 0.5)
       .on("end", (layoutWords: any[]) => {
         svg
           .attr("viewBox", `0 0 ${width} ${height}`)
