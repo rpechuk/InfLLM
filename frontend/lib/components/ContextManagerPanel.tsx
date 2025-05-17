@@ -5,6 +5,9 @@ import { FaTimes } from "react-icons/fa";
 import Pane from "./Pane";
 import { getLayerContext, getBlockContext } from "@/api/context";
 import WordCloud from "./WordCloud";
+import WordScores from "./WordScores";
+import { preprocess } from "@/api/preprocess";
+import { WordScore } from "@/types";
 
 const NUM_LAYERS = 39;
 const PLACEHOLDER_WORDCLOUD = "[Word Cloud Placeholder]";
@@ -31,6 +34,8 @@ export default function ContextManagerPanel({ refreshSignal = 0 }: { refreshSign
   const [blockIndices, setBlockIndices] = useState<number[]>([]);
   const [blockDetails, setBlockDetails] = useState<any>(null); // For future use (e.g., word cloud)
   const [loading, setLoading] = useState(false);
+  const [showWordCloud, setShowWordCloud] = useState(true);
+  const [shouldPreprocess, setShouldPreprocess] = useState(true);
 
   // On mount, ensure selection is unselected
   useEffect(() => {
@@ -85,6 +90,15 @@ export default function ContextManagerPanel({ refreshSignal = 0 }: { refreshSign
     // Do NOT update selected here
   };
 
+  let words: WordScore[] = blockDetails?.tokens.map((text: string, i: number) => ({
+    text,
+    value: blockDetails?.representation_score[i] || 1
+  }));
+
+  if (shouldPreprocess && words) {
+    words = preprocess(words);
+  }
+
   return (
     <div className="flex flex-col h-full w-full gap-4">
       {/* Top: Word cloud in a Pane */}
@@ -100,17 +114,34 @@ export default function ContextManagerPanel({ refreshSignal = 0 }: { refreshSign
             ) : (
               <span className="text-base font-mono text-gray-400 flex items-center h-8 min-w-[110px] justify-center border border-gray-500 rounded px-3 py-1">Block: --</span>
             )}
+            <button
+              onClick={() => setShowWordCloud(!showWordCloud)}
+              className="ml-4 px-3 py-1 rounded border border-gray-500 hover:border-gray-400 text-gray-300 hover:text-gray-200 text-sm font-mono transition-colors"
+            >
+              {showWordCloud ? "Show Scores" : "Show Cloud"}
+            </button>
+            <button
+              onClick={() => setShouldPreprocess(!shouldPreprocess)}
+              className="ml-4 px-3 py-1 rounded border border-gray-500 hover:border-gray-400 text-gray-300 hover:text-gray-200 text-sm font-mono transition-colors"
+            >
+              {shouldPreprocess ? "Clean on" : "Clean off"}
+            </button>
           </div>
-          <div className="flex flex-col items-center justify-center flex-1 border border-dashed border-gray-600 rounded-lg bg-gray-800" style={{ minHeight: 220 }}>
+          <div className="flex flex-col items-center justify-center flex-1 border border-dashed border-gray-600 rounded-lg bg-gray-800" style={{ minHeight: 220, overflow: "scroll" }}>
             {blockDetails && selected.layer !== null && selected.block !== null && blockDetails.tokens && blockDetails.representation_score && blockDetails.tokens.length > 0 && blockDetails.representation_score.length > 0 ? (
-              <WordCloud
-                words={blockDetails.tokens.map((text: string, i: number) => ({
-                  text,
-                  value: blockDetails.representation_score[i] || 1
-                }))}
-                width={400}
-                height={220}
-              />
+              showWordCloud ? (
+                <WordCloud
+                  words={words}
+                  width={400}
+                  height={220}
+                />
+              ) : (
+                <WordScores
+                  words={words}
+                  width={400}
+                  height={220}
+                />
+              )
             ) : (
               <span className="text-gray-400 font-mono text-lg">{PLACEHOLDER_WORDCLOUD}</span>
             )}

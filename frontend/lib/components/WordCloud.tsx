@@ -2,14 +2,10 @@ import React, { useRef, useEffect } from "react";
 import * as d3 from "d3";
 // @ts-ignore: d3-cloud has no types
 import cloud from "d3-cloud";
-
-export interface WordCloudWord {
-  text: string;
-  value: number;
-}
+import { WordScore } from "@/types";
 
 interface WordCloudProps {
-  words: WordCloudWord[];
+  words: WordScore[];
   width?: number;
   height?: number;
   minFontSize?: number;
@@ -59,7 +55,7 @@ const WordCloud: React.FC<WordCloudProps> = ({
     // Layout
     cloud()
       .size([width, height])
-      .words(words.map((d: WordCloudWord) => ({ ...d })))
+      .words(words.map((d: WordScore) => ({ ...d })))
       .padding(5)
       .rotate((d: any) => (hashString(d.text) % 2 === 0 ? 0 : 90))
       .font("Impact")
