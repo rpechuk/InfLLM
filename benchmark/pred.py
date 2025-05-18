@@ -224,7 +224,6 @@ def get_pred(
     total = len(data)
 
     for json_obj in tqdm(data):
-        print('looping')
         prompt = prompt_format.format(**json_obj)
 
         extra_end_token_ids = []
@@ -247,7 +246,6 @@ def get_pred(
                 add_special_tokens = True
         
         else:
-            print('2')
             add_special_tokens = True
 
         tokenized_prompt = tokenizer(prompt, truncation=False, return_tensors="pt", add_special_tokens=add_special_tokens).input_ids[0]
@@ -270,7 +268,7 @@ def get_pred(
             else:
                 raise NotImplementedError
     
-
+        print('getting output')
         
         output = searcher.generate(
             input_ids = tokenized_prompt,
@@ -278,6 +276,8 @@ def get_pred(
             chunk_size=gen_chunk_size,
             extra_end_token_ids=extra_end_token_ids
         )
+
+        print('got output')
 
         pred = post_process(output[0], model_name, dataset)
         preds.append({"pred": pred, "answers": json_obj["answers"], "all_classes": json_obj["all_classes"], "length": json_obj["length"], "token_length": len(tokenized_prompt) + max_gen})

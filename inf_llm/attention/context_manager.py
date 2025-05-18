@@ -284,10 +284,15 @@ class ContextManager:
         k = self.from_group_kv(k)
         assert k.shape[:-1] == score.shape
         assert k.shape[-2] == self.block_size
-        score_topk = score.topk(self.repr_topk, dim=-1).indices  # Millan: getting representatives
-        assert score_topk.shape == (self.num_units, self.unit_size, self.repr_topk)
-        ret = torch.gather(k, -2, score_topk[:, :, :, None].expand(self.num_units, self.unit_size, self.repr_topk, self.dim_head))
-        return ret
+        score_topk = score.topk(self.repr_topk, dim=-1)
+        score_topk_values = score_topk.values
+        score_topk_indices = score_topk.indices  # Millan: getting representatives
+        # print('indicesshape', score_topk_indices[:,:,:,None].shape)
+        # Quest kv cache: try this instead of topk (or average)
+        assert score_topk_indices.shape == (self.num_units, self.unit_size, self.repr_topk)
+        # This takes the 20 by 4 matrix and repeats it 128 times
+        ret = torch.gather(k, -2, score_topk_indices[:, :, :, None].expand(self.num_units, self.unit_size, self.repr_topk, self.dim_head))
+        return ret, score_topk_values[:, :, :, None].expand(self.num_units, self.unit_size, self.repr_topk, self.dim_head)
 
 
     def from_group_kv(self, tensor):
@@ -675,12 +680,23 @@ class ContextManager:
                     )
                 ))
 
-            global_block_k = self.get_block_k(
+            global_block_k, global_block_k_attentionscores = self.get_block_k(
                 self.global_remainder[0][:, :, global_remainder_st:global_remainder_st + self.block_size, :],
                 self.global_remainder_local_score[:, :, global_remainder_st:global_remainder_st + self.block_size]
             )
+            print('Attn score shape', global_block_k_attentionscores.shape)
             assert global_block_k.shape == (self.num_units, self.unit_size, self.repr_topk, self.dim_head)
+            ############################## OLD, NAIVE MEAN: ##########################################
+            # global_block_k = global_block_k.mean(dim=-2, keepdim=False)  # Millan: this is averaging
+            ############################## NEW, WEIGHTED MEAN: #######################################
+            # global_block_k = torch.sum(global_block_k * global_block_k_attentionscores, dim=-2, keepdim=False)
+            # global_block_k /= torch.sum(global_block_k_attentionscores)
+            ############################## NEW, MAX ##################################################
             global_block_k = global_block_k.mean(dim=-2, keepdim=False)
+            ##########################################################################################
+            
+            # 1: weighted average, by the global_reminder_local_score
+            # 2: top 1
             global_block_k = global_block_k.reshape(self.num_units, self.unit_size * self.dim_head)
             global_block_k = global_block_k[:, None, :]
 

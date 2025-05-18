@@ -12,6 +12,6 @@ model:
   base: 1000000
   distance_scale: 1.0
 
-max_len: 200000 # originally 2147483647
+max_len: 2147483647
 chunk_size: 2048 
 conv_type: qwen
