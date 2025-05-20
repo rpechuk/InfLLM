@@ -16,9 +16,9 @@ async def lifespan(app: FastAPI):
     # Load model and tokenizer at startup
     from inf_llm import chat as inf_llm_chat
     from omegaconf import OmegaConf
-    inf_llm_config_full = OmegaConf.load(INF_LLM_CONFIG_PATH)
-    inf_llm_config = inf_llm_config_full["model"]
-    state.conv_template_name = inf_llm_config_full.get("conv_type", None)
+    state.config = OmegaConf.load(INF_LLM_CONFIG_PATH)
+    inf_llm_config = state.config["model"]
+    state.conv_template_name = state.config.get("conv_type", None)
     state.model, state.tokenizer = inf_llm_chat.load_model(
         MODEL_PATH,
         device="cuda" if torch.cuda.is_available() else "cpu",

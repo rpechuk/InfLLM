@@ -259,7 +259,15 @@ class ContextManager:
             self.calc_block_score = False
 
         self._listeners: list[GlobalCacheListener] = listeners or []
-    
+
+    def clear(self):
+        self.global_blocks = [[] for _ in range(self.num_units)]
+        self.cached_blocks = [{} for _ in range(self.num_units)]
+        self.num_global_block = 0
+        self.length = 0
+        self.load_count = 0
+        self.initialized = False
+
     def _emit(self, event: str, **kw) -> None:
         for cb in self._listeners:
             cb(event, **kw)

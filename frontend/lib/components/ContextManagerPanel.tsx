@@ -105,7 +105,6 @@ export default function ContextManagerPanel({ refreshSignal = 0 }: { refreshSign
       <Pane className="h-1/2">
         <div className="flex flex-col h-full w-full p-4">
           <div className="mb-4 flex flex-row items-center gap-2 justify-center">
-            <span className="text-lg font-mono text-gray-400">Currently Displayed:</span>
             <span className="text-base font-mono font-bold px-3 py-1 rounded border border-blue-500 bg-blue-900 text-blue-300 flex items-center h-8 min-w-[110px] justify-center">
               {selected.layer !== null ? `Layer ${selected.layer + 1}` : "Layer: --"}
             </span>
@@ -138,8 +137,6 @@ export default function ContextManagerPanel({ refreshSignal = 0 }: { refreshSign
               ) : (
                 <WordScores
                   words={words}
-                  width={400}
-                  height={220}
                 />
               )
             ) : (

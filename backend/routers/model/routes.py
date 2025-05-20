@@ -53,4 +53,7 @@ def new_chat_endpoint():
     """
     state._conversation = get_conversation()
     state.model._fschat_pkv = None
+    for layer in state.model.model.layers:
+        if hasattr(layer.self_attn, "_past_key_value"):
+            layer.self_attn._past_key_value.clear()
     return {"status": "ok"}

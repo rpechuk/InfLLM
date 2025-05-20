@@ -5,17 +5,10 @@ import { dedup } from '@/api/preprocess';
 
 interface WordScoresProps {
   words: WordScore[];
-  width?: number;
-  height?: number;
 }
-
-const defaultWidth = 400;
-const defaultHeight = 250;
 
 const WordScores: React.FC<WordScoresProps> = ({
   words,
-  width = defaultWidth,
-  height = defaultHeight,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -29,25 +22,25 @@ const WordScores: React.FC<WordScoresProps> = ({
 
     d3.select(svgRef.current).selectAll("*").remove();
 
-    const margin = { top: 20, right: 50, bottom: 40, left: 120 };
-    const chartWidth = width - margin.left - margin.right;
+    const margin = { top: 10, right: 50, bottom: 10, left: 120 };
     const rowHeight = 32;
     const totalContentHeight = sortedWords.length * rowHeight + margin.top + margin.bottom;
 
 
     const svg = d3.select(svgRef.current)
-      .attr("width", width)
+      .attr("width", '100%')
       .attr("height", totalContentHeight)
-      .attr("viewBox", `0 0 ${width} ${totalContentHeight}`)
-      .attr("preserveAspectRatio", "xMinYMin meet");
+      .attr("viewBox", `0 0 ${containerRef.current?.clientWidth} ${totalContentHeight}`)
+      .attr("preserveAspectRatio", "none");
 
     const g = svg.append("g")
       .attr("transform", `translate(${margin.left},${margin.top})`);
 
-
+    console.log(sortedWords[0].value)
+    console.log(sortedWords[sortedWords.length - 1].value)
     const x = d3.scaleLinear()
-      .domain([0, 1])
-      .range([0, chartWidth]);
+      .domain([0, sortedWords[0].value])
+      .range([0, svgRef.current.clientWidth - margin.left - margin.right]);
 
     const y = d3.scaleBand()
       .domain(sortedWords.map(d => d.text))
@@ -63,7 +56,7 @@ const WordScores: React.FC<WordScoresProps> = ({
       .attr("y", d => y(d.text) || 0)
       .attr("height", y.bandwidth())
       .attr("x", 0)
-      .attr("width", chartWidth)
+      .attr("width", svgRef.current.clientWidth)
       .attr("fill", (d, i) => i % 2 === 0 ? "#2d3748" : "#1a202c")
       .attr("rx", 4);
 
@@ -104,7 +97,7 @@ const WordScores: React.FC<WordScoresProps> = ({
       .attr("font-family", "monospace")
       .attr("font-size", "14px")
       .attr("fill", "#e2e8f0")
-      .text(d => d.text);
+      .text(d => d.text.replaceAll(" ", "⎵"));
 
 
     g.selectAll(".value-label")
@@ -130,7 +123,7 @@ const WordScores: React.FC<WordScoresProps> = ({
       .attr("stroke-dasharray", "4,4")
       .style("opacity", 0.5);
 
-  }, [words, width, height]);
+  }, [words]);
 
   return (
     <div
@@ -138,7 +131,7 @@ const WordScores: React.FC<WordScoresProps> = ({
       className="word-scores-container"
       style={{
         width: "100%",
-        height,
+        height: "100%",
         overflow: "auto",
         position: "relative",
         backgroundColor: "#1a202c",

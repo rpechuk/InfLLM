@@ -212,11 +212,15 @@ export default function ChatPane({ onChatFinished }: { onChatFinished?: () => vo
     state,
     dispatch,
     sendMessage: origSendMessage,
-    handleNewChat,
+    handleNewChat: origHandleNewChat,
     handleDragOver,
     handleDragLeave,
     handleDrop,
   } = useChatPane();
+  const handleNewChat = async () => {
+    await origHandleNewChat();
+    if (onChatFinished) onChatFinished();
+  };
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
