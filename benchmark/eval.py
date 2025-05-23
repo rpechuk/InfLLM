@@ -129,10 +129,11 @@ def scorer(dataset, predictions, answers, all_classes):
                 else:
                     print("OH NO!", split)
         score = calc_score(dataset, prediction, ground_truths, all_classes)
-        print(f'prediction: {prediction}')
-        print(f'ground_truths: {ground_truths}')
-        print(f'score: {score}')
-        print('-'*100)
+        if not score:
+            print(f'prediction: {prediction}')
+            print(f'ground_truths: {ground_truths}')
+            print(f'score: {score}')
+            print('-'*100)
         total_score += score
     print(f'total_score: {total_score}')
     return round(100 * total_score / len(predictions), 2)

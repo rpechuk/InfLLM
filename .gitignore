@@ -1,5 +1,5 @@
 __pycache__
-*.jsonl
+# *.jsonl
 benchmark/data
 .venv
 .env

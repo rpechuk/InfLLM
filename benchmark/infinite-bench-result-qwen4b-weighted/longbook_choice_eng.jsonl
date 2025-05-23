@@ -1,0 +1,149 @@
+{"pred": "D", "answers": ["That Italy inherit the Latins' name and language and not the Trojans'", "D"], "all_classes": null, "length": 66052, "token_length": 94499}
+{"pred": "B", "answers": ["12 days", "A"], "all_classes": null, "length": 66052, "token_length": 94472}
+{"pred": "C", "answers": ["Carley", "D"], "all_classes": null, "length": 66052, "token_length": 94464}
+{"pred": "C", "answers": ["Jaelynn", "B"], "all_classes": null, "length": 66052, "token_length": 94471}
+{"pred": "D", "answers": ["Puffed sleeves", "D"], "all_classes": null, "length": 101982, "token_length": 134159}
+{"pred": "A", "answers": ["Avonlea", "A"], "all_classes": null, "length": 101982, "token_length": 134154}
+{"pred": "D", "answers": ["Losing Hattie's brooch", "A"], "all_classes": null, "length": 101982, "token_length": 134186}
+{"pred": "D", "answers": ["Clinging to a bridge pile", "D"], "all_classes": null, "length": 101982, "token_length": 134173}
+{"pred": "D", "answers": ["All of the above", "D"], "all_classes": null, "length": 120266, "token_length": 163847}
+{"pred": "D", "answers": ["Lorelei doesn't approve of early marriages and he wishes Colleen would finish college, but he supports Colleen's right to live his life on his own terms.", "A"], "all_classes": null, "length": 120266, "token_length": 163934}
+{"pred": "D.", "answers": ["He became engaged to her almost by accident, and he didn't have the courage to break it off", "B"], "all_classes": null, "length": 120266, "token_length": 163872}
+{"pred": "D", "answers": ["Religion is heavily influenced by materialism and competition for social status.", "B"], "all_classes": null, "length": 120266, "token_length": 163868}
+{"pred": "D", "answers": ["A kiss", "D"], "all_classes": null, "length": 119385, "token_length": 156418}
+{"pred": "C", "answers": ["Haunted by humans", "C"], "all_classes": null, "length": 119385, "token_length": 156429}
+{"pred": "D", "answers": ["He'll die and they'll have to get rid of his body", "D"], "all_classes": null, "length": 119385, "token_length": 156432}
+{"pred": "B", "answers": ["Candace can write her own story", "B"], "all_classes": null, "length": 119385, "token_length": 156444}
+{"pred": "D.", "answers": ["He misunderstands the monster's warning.", "C"], "all_classes": null, "length": 68476, "token_length": 90570}
+{"pred": "D. Joey's monster", "answers": ["Allyson Kalia", "C"], "all_classes": null, "length": 68476, "token_length": 90542}
+{"pred": "B", "answers": ["Lack of desire to marry Raiden", "D"], "all_classes": null, "length": 68476, "token_length": 90561}
+{"pred": "D.", "answers": ["By listening to Felix teach Safie his language", "A"], "all_classes": null, "length": 68476, "token_length": 90560}
+{"pred": "C", "answers": ["Human and bear", "D"], "all_classes": null, "length": 95241, "token_length": 119415}
+{"pred": "C", "answers": ["Riddle-solving", "C"], "all_classes": null, "length": 95241, "token_length": 119416}
+{"pred": "D", "answers": ["His old home at Hobbiton", "D"], "all_classes": null, "length": 95241, "token_length": 119424}
+{"pred": "C. Eoin and Took", "answers": ["Eoin and Took", "C"], "all_classes": null, "length": 95241, "token_length": 119432}
+{"pred": "C", "answers": ["The garbage", "B"], "all_classes": null, "length": 58698, "token_length": 72816}
+{"pred": "B", "answers": ["Sir Blossom Horatio", "A"], "all_classes": null, "length": 58698, "token_length": 72812}
+{"pred": "D", "answers": ["Because he was wearing Sir Dilan's suit", "B"], "all_classes": null, "length": 58698, "token_length": 72822}
+{"pred": "D", "answers": ["Phosphorous", "D"], "all_classes": null, "length": 58698, "token_length": 72812}
+{"pred": "C", "answers": ["Prison", "B"], "all_classes": null, "length": 94313, "token_length": 126240}
+{"pred": "D", "answers": ["Have him sent to the asylum", "B"], "all_classes": null, "length": 94313, "token_length": 126240}
+{"pred": "D", "answers": ["Judge Drake", "D"], "all_classes": null, "length": 94313, "token_length": 126224}
+{"pred": "D", "answers": ["Witchcraft", "D"], "all_classes": null, "length": 94313, "token_length": 126228}
+{"pred": "D", "answers": ["He freezes, realizing that the dinosaur cannot see him if he does not move", "A"], "all_classes": null, "length": 129181, "token_length": 178906}
+{"pred": "A", "answers": ["Velociraptor", "C"], "all_classes": null, "length": 129181, "token_length": 178886}
+{"pred": "B", "answers": ["He wants to put the moves on Dr. Christie", "D"], "all_classes": null, "length": 129181, "token_length": 178942}
+{"pred": "D", "answers": ["Fifteen", "C"], "all_classes": null, "length": 129181, "token_length": 178864}
+{"pred": "B", "answers": ["Edinburgh", "B"], "all_classes": null, "length": 79729, "token_length": 101470}
+{"pred": "D", "answers": ["Isobel", "A"], "all_classes": null, "length": 79729, "token_length": 101478}
+{"pred": "B", "answers": ["A silver button from his jacket", "D"], "all_classes": null, "length": 79729, "token_length": 101491}
+{"pred": "C", "answers": ["Ciaran of the Dior", "C"], "all_classes": null, "length": 79729, "token_length": 101483}
+{"pred": "C", "answers": ["Hurons", "C"], "all_classes": null, "length": 145886, "token_length": 183375}
+{"pred": "A", "answers": ["Theo", "A"], "all_classes": null, "length": 145886, "token_length": 183365}
+{"pred": "D", "answers": ["Cael", "A"], "all_classes": null, "length": 145886, "token_length": 183374}
+{"pred": "D", "answers": ["A doctor", "C"], "all_classes": null, "length": 145886, "token_length": 183382}
+{"pred": "C", "answers": ["Talent", "C"], "all_classes": null, "length": 76740, "token_length": 92176}
+{"pred": "C", "answers": ["It is structured like an army.", "C"], "all_classes": null, "length": 76740, "token_length": 92192}
+{"pred": "C", "answers": ["They felt that there was nothing that could be done about it.", "A"], "all_classes": null, "length": 76740, "token_length": 92205}
+{"pred": "D", "answers": ["All of the above", "D"], "all_classes": null, "length": 76740, "token_length": 92201}
+{"pred": "B", "answers": ["Kelly repairs Richie's father's broken leg", "D"], "all_classes": null, "length": 113506, "token_length": 148270}
+{"pred": "B", "answers": ["A power of attorney", "D"], "all_classes": null, "length": 113506, "token_length": 148261}
+{"pred": "C", "answers": ["In the woods", "C"], "all_classes": null, "length": 113506, "token_length": 148260}
+{"pred": "B", "answers": ["He once slept with Marie Antoinette", "B"], "all_classes": null, "length": 113506, "token_length": 148282}
+{"pred": "A", "answers": ["Horseback riding", "C"], "all_classes": null, "length": 159438, "token_length": 199461}
+{"pred": "D", "answers": ["Everingham", "A"], "all_classes": null, "length": 159438, "token_length": 199466}
+{"pred": "D", "answers": ["Thrush", "C"], "all_classes": null, "length": 159438, "token_length": 199465}
+{"pred": "D", "answers": ["Sailor", "A"], "all_classes": null, "length": 159438, "token_length": 199461}
+{"pred": "B", "answers": ["Laundry bills", "A"], "all_classes": null, "length": 76855, "token_length": 95610}
+{"pred": "B", "answers": ["Aaliyah Hugo", "C"], "all_classes": null, "length": 76855, "token_length": 95597}
+{"pred": "D", "answers": ["Free indirect discourse", "D"], "all_classes": null, "length": 76855, "token_length": 95600}
+{"pred": "D", "answers": ["During a dance in the Lower Rooms", "A"], "all_classes": null, "length": 76855, "token_length": 95603}
+{"pred": "D", "answers": ["Alaska", "C"], "all_classes": null, "length": 55395, "token_length": 69788}
+{"pred": "C", "answers": ["Engraving", "A"], "all_classes": null, "length": 55395, "token_length": 69784}
+{"pred": "D. Saint-Agnes", "answers": ["Saint-Agnes", "D"], "all_classes": null, "length": 55395, "token_length": 69797}
+{"pred": "C. Joe Jermaine", "answers": ["Albert Tovesky", "D"], "all_classes": null, "length": 55395, "token_length": 69786}
+{"pred": "A", "answers": ["Mrs. Angeline", "A"], "all_classes": null, "length": 81522, "token_length": 104438}
+{"pred": "B", "answers": ["Arjun", "B"], "all_classes": null, "length": 81522, "token_length": 104433}
+{"pred": "D.", "answers": ["She thinks Mrs. Delanie might have romantic designs on Sir Dan", "D"], "all_classes": null, "length": 81522, "token_length": 104473}
+{"pred": "A", "answers": ["Randy Ayanna", "C"], "all_classes": null, "length": 81522, "token_length": 104435}
+{"pred": "A", "answers": ["Marry Mya", "C"], "all_classes": null, "length": 112181, "token_length": 142959}
+{"pred": "D", "answers": ["Sends her a letter explaining his actions", "A"], "all_classes": null, "length": 112181, "token_length": 142971}
+{"pred": "D.", "answers": ["She gets soaked in a rainstorm and becomes ill.", "A"], "all_classes": null, "length": 112181, "token_length": 142997}
+{"pred": "A", "answers": ["Abrianna", "A"], "all_classes": null, "length": 112181, "token_length": 142956}
+{"pred": "D", "answers": ["\"St. George\"", "D"], "all_classes": null, "length": 140022, "token_length": 180573}
+{"pred": "B", "answers": ["He was a captain", "A"], "all_classes": null, "length": 140022, "token_length": 180575}
+{"pred": "B", "answers": ["Rocky", "A"], "all_classes": null, "length": 140022, "token_length": 180565}
+{"pred": "C", "answers": ["A dye used for marking sheep", "D"], "all_classes": null, "length": 140022, "token_length": 180570}
+{"pred": "B", "answers": ["A North African territory", "B"], "all_classes": null, "length": 120792, "token_length": 144257}
+{"pred": "D", "answers": ["Experiences a religious illumination", "D"], "all_classes": null, "length": 120792, "token_length": 144265}
+{"pred": "C", "answers": ["Sebastianne's god", "D"], "all_classes": null, "length": 120792, "token_length": 144254}
+{"pred": "B", "answers": ["A goat's", "A"], "all_classes": null, "length": 120792, "token_length": 144251}
+{"pred": "C", "answers": ["She inherits Troy's estate and marries a nobleman.", "C"], "all_classes": null, "length": 68317, "token_length": 90853}
+{"pred": "C. She is executed publicly as a witch.", "answers": ["She is executed publicly as a witch.", "C"], "all_classes": null, "length": 68317, "token_length": 90854}
+{"pred": "D", "answers": ["A meteor", "B"], "all_classes": null, "length": 68317, "token_length": 90849}
+{"pred": "D. Isha Susan", "answers": ["Dayton Morton", "B"], "all_classes": null, "length": 118749, "token_length": 148664}
+{"pred": "D", "answers": ["Mr. Pratt", "D"], "all_classes": null, "length": 118749, "token_length": 148665}
+{"pred": "A", "answers": ["Return each other's letters", "A"], "all_classes": null, "length": 118749, "token_length": 148677}
+{"pred": "C", "answers": ["Kristi Finn", "B"], "all_classes": null, "length": 118749, "token_length": 148666}
+{"pred": "D", "answers": ["Kallie", "D"], "all_classes": null, "length": 67693, "token_length": 89836}
+{"pred": "A", "answers": ["Perla", "D"], "all_classes": null, "length": 67693, "token_length": 89826}
+{"pred": "C", "answers": ["It makes him sick", "D"], "all_classes": null, "length": 67693, "token_length": 89842}
+{"pred": "C", "answers": ["He wants to wait for Katniss", "C"], "all_classes": null, "length": 67693, "token_length": 89856}
+{"pred": "D", "answers": ["Miss Dave' brother, Solomon", "A"], "all_classes": null, "length": 135597, "token_length": 177603}
+{"pred": "B", "answers": ["Madame Royce", "A"], "all_classes": null, "length": 135597, "token_length": 177596}
+{"pred": "B", "answers": ["Mississippi", "B"], "all_classes": null, "length": 91957, "token_length": 134672}
+{"pred": "C", "answers": ["Chewing gum", "D"], "all_classes": null, "length": 91957, "token_length": 134678}
+{"pred": "C", "answers": ["9 ", "D"], "all_classes": null, "length": 91957, "token_length": 134682}
+{"pred": "B", "answers": ["Gia Leena", "A"], "all_classes": null, "length": 91957, "token_length": 134681}
+{"pred": "A", "answers": ["The Bloomsbury Group", "A"], "all_classes": null, "length": 69452, "token_length": 88108}
+{"pred": "B", "answers": ["She drowned herself", "A"], "all_classes": null, "length": 69452, "token_length": 88100}
+{"pred": "A", "answers": ["Mrs. Deandra", "C"], "all_classes": null, "length": 69452, "token_length": 88103}
+{"pred": "C", "answers": ["“The Charge of the Light Brigade”", "C"], "all_classes": null, "length": 69452, "token_length": 88108}
+{"pred": "C", "answers": ["He is an innkeeper", "C"], "all_classes": null, "length": 67951, "token_length": 89122}
+{"pred": "B", "answers": ["To make a truce", "A"], "all_classes": null, "length": 67951, "token_length": 89121}
+{"pred": "D", "answers": ["That Ace has been deposed", "B"], "all_classes": null, "length": 67951, "token_length": 89142}
+{"pred": "A", "answers": ["A boat", "D"], "all_classes": null, "length": 67951, "token_length": 89115}
+{"pred": "C", "answers": ["A native rescues him at the seashore", "C"], "all_classes": null, "length": 103051, "token_length": 128025}
+{"pred": "D", "answers": ["The main Typee dish made of breadfruit", "A"], "all_classes": null, "length": 103051, "token_length": 128025}
+{"pred": "A", "answers": ["France", "B"], "all_classes": null, "length": 103051, "token_length": 127998}
+{"pred": "B", "answers": ["Get a tattoo", "C"], "all_classes": null, "length": 103051, "token_length": 128011}
+{"pred": "D", "answers": ["Both A and B", "D"], "all_classes": null, "length": 101371, "token_length": 142799}
+{"pred": "D", "answers": ["All of the above", "D"], "all_classes": null, "length": 101371, "token_length": 142808}
+{"pred": "B", "answers": ["All of the above", "D"], "all_classes": null, "length": 101371, "token_length": 142781}
+{"pred": "A", "answers": ["He feels she has been unfairly shunned by some of the best families in New York", "C"], "all_classes": null, "length": 101371, "token_length": 142818}
+{"pred": "B", "answers": ["He writes a poem about solitude.", "A"], "all_classes": null, "length": 63916, "token_length": 88085}
+{"pred": "B", "answers": ["By sounding alarms and shocking the children when they approach books or flowers", "D"], "all_classes": null, "length": 63916, "token_length": 88106}
+{"pred": "D", "answers": ["To bring rain", "A"], "all_classes": null, "length": 63916, "token_length": 88086}
+{"pred": "D", "answers": ["A society of Alphas is unworkable.", "A"], "all_classes": null, "length": 63916, "token_length": 88101}
+{"pred": "D", "answers": ["Playing cards", "B"], "all_classes": null, "length": 67518, "token_length": 90720}
+{"pred": "B", "answers": ["A street organ", "C"], "all_classes": null, "length": 67518, "token_length": 90721}
+{"pred": "D", "answers": ["Two lovers", "C"], "all_classes": null, "length": 67518, "token_length": 90722}
+{"pred": "C", "answers": ["A chalice", "C"], "all_classes": null, "length": 67518, "token_length": 90714}
+{"pred": "A", "answers": ["Move quickly, since more players are entering the game.", "C"], "all_classes": null, "length": 78073, "token_length": 101947}
+{"pred": "C", "answers": ["A lens", "A"], "all_classes": null, "length": 78073, "token_length": 101909}
+{"pred": "C", "answers": ["Ser Hugh, a former squire", "B"], "all_classes": null, "length": 78073, "token_length": 101895}
+{"pred": "A", "answers": ["Accept Joff as king instead of naming Stannis.", "A"], "all_classes": null, "length": 78073, "token_length": 101919}
+{"pred": "D", "answers": ["\"Saints\"", "D"], "all_classes": null, "length": 83356, "token_length": 117330}
+{"pred": "D", "answers": ["Morning", "A"], "all_classes": null, "length": 83356, "token_length": 117315}
+{"pred": "B", "answers": ["His father strikes his mother.", "A"], "all_classes": null, "length": 83356, "token_length": 117329}
+{"pred": "D", "answers": ["A kiss on the forehead", "D"], "all_classes": null, "length": 83356, "token_length": 117321}
+{"pred": "D. Kailey", "answers": ["Kailey", "D"], "all_classes": null, "length": 102939, "token_length": 149598}
+{"pred": "A", "answers": ["Kailey", "D"], "all_classes": null, "length": 102939, "token_length": 149600}
+{"pred": "B", "answers": ["Her father's house", "B"], "all_classes": null, "length": 102939, "token_length": 149607}
+{"pred": "A", "answers": ["Boredom", "B"], "all_classes": null, "length": 102939, "token_length": 149613}
+{"pred": "B", "answers": ["Richard Cormac", "D"], "all_classes": null, "length": 115188, "token_length": 158606}
+{"pred": "D. A smutting", "answers": ["A skimmity-ride", "B"], "all_classes": null, "length": 115188, "token_length": 158610}
+{"pred": "B", "answers": ["Hay-trusser", "D"], "all_classes": null, "length": 115188, "token_length": 158602}
+{"pred": "B", "answers": ["He worries that he is too young for the position", "D"], "all_classes": null, "length": 115188, "token_length": 158634}
+{"pred": "C", "answers": ["Her tone of voice does not indicate that the young man is Indian", "C"], "all_classes": null, "length": 101702, "token_length": 131891}
+{"pred": "B", "answers": ["Because she wants to see the real India", "B"], "all_classes": null, "length": 101702, "token_length": 131896}
+{"pred": "C", "answers": ["She speaks frankly about her dislike for Mrs. Jaya", "D"], "all_classes": null, "length": 101702, "token_length": 131879}
+{"pred": "D", "answers": ["He does not stand when Cerys enters", "D"], "all_classes": null, "length": 101702, "token_length": 131881}
+{"pred": "C", "answers": ["dog", "C"], "all_classes": null, "length": 83714, "token_length": 108461}
+{"pred": "A", "answers": ["F.B.", "D"], "all_classes": null, "length": 83714, "token_length": 108481}
+{"pred": "D", "answers": ["An Italian client", "B"], "all_classes": null, "length": 83714, "token_length": 108469}
+{"pred": "C", "answers": ["bow-legged", "A"], "all_classes": null, "length": 83714, "token_length": 108462}
+{"pred": "A", "answers": ["Thirty", "D"], "all_classes": null, "length": 115720, "token_length": 142632}
+{"pred": "A", "answers": ["Amos Bronson Alcott", "A"], "all_classes": null, "length": 115720, "token_length": 142639}
+{"pred": "D. Walden", "answers": ["A Week on the Merrimack and Concord Rivers ", "A"], "all_classes": null, "length": 115720, "token_length": 142638}
+{"pred": "D", "answers": ["A morning star", "B"], "all_classes": null, "length": 115720, "token_length": 142644}
