@@ -712,17 +712,16 @@ class ContextManager:
                     )
                 ))
 
-            global_block = self.global_remainder[0][:, :, global_remainder_st:global_remainder_st + self.block_size, :]
             global_block_k, global_block_k_attentionscores = self.get_block_k(
-                global_block,
+                self.global_remainder[0][:, :, global_remainder_st:global_remainder_st + self.block_size, :],
                 self.global_remainder_local_score[:, :, global_remainder_st:global_remainder_st + self.block_size]
             )
             # print('Attn score shape', global_block_k_attentionscores.shape)
             assert global_block_k.shape == (self.num_units, self.unit_size, self.repr_topk, self.dim_head)
                         
             ############################## NEW, QUEST: #######################################
-            global_block_k_maxima = torch.max(global_block, dim=-2, keepdim=False).values
-            global_block_k_minima = torch.min(global_block, dim=-2, keepdim=False).values
+            global_block_k_maxima = torch.max(global_block_k * global_block_k_attentionscores, dim=-2, keepdim=False).values
+            global_block_k_minima = torch.min(global_block_k * global_block_k_attentionscores, dim=-2, keepdim=False).values
             
             global_block_k_maxima = global_block_k_maxima.reshape(self.num_units, self.unit_size * self.dim_head)
             global_block_k_maxima = global_block_k_maxima[:, None, :]
