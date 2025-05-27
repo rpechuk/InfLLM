@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from .types import LayerResponse, BlockResponse
+from .types import LayerResponse, BlockResponse, BlockContentResponse
 from .context_utils import extract_ctx_manager
 
 context_router = APIRouter(prefix="/context")
@@ -59,4 +59,38 @@ def get_block(layer: int, block: int):
     except Exception as e:
         print(e)
         return BlockResponse(layer=layer, block=block, tokens=[], representation_score=[], error=str(e))
+
+@context_router.get("/block/{layer}/{block}/content", response_model=BlockContentResponse)
+def get_block_content(layer: int, block: int):
+    """
+    GET /block/{layer}/{block}/content
+    Input: layer (path param), block (path param)
+    Output: BlockContentResponse with fully decoded content
+    """
+    try:
+        import backend.state as state
+        ctx_manager = extract_ctx_manager(layer)
+        memory_unit = ctx_manager.global_blocks[0][block]
+        # Try to get input_ids from the model (patched model should have this)
+        input_ids = getattr(getattr(state, "model", None), "input_ids", None)
+        tokenizer = getattr(state, "tokenizer", None)
+        content = ""
+        if input_ids is not None and tokenizer is not None:
+            input_ids = input_ids[0].tolist() if hasattr(input_ids, 'tolist') else input_ids
+            block_tokens, _ = memory_unit.get_tokens_and_scores(input_ids)
+            # Decode the full sequence of tokens to get properly formatted text
+            content = tokenizer.decode(block_tokens, skip_special_tokens=True)
+        else:
+            if input_ids is None:
+                print("Warning: input_ids not found on model. Patch may be missing.")
+            if tokenizer is None:
+                print("Warning: tokenizer not found in state.")
+        return BlockContentResponse(
+            layer=layer,
+            block=block,
+            content=content
+        )
+    except Exception as e:
+        print(e)
+        return BlockContentResponse(layer=layer, block=block, content="", error=str(e))
   

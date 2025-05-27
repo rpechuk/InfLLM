@@ -12,8 +12,8 @@ interface WordCloudProps {
   maxFontSize?: number;
 }
 
-const defaultWidth = 400;
-const defaultHeight = 250;
+const defaultWidth = 500;
+const defaultHeight = 200;
 const defaultMinFont = 12;
 const defaultMaxFont = 48;
 
@@ -53,6 +53,8 @@ const WordCloud: React.FC<WordCloudProps> = ({
       .range([minFontSize, maxFontSize]);
 
     // Layout
+    width = svgRef.current?.clientWidth || width
+    height = svgRef.current?.clientHeight || height;
     cloud()
       .size([width, height])
       .words(words.map((d: WordScore) => ({ ...d })))
@@ -110,7 +112,7 @@ const WordCloud: React.FC<WordCloudProps> = ({
   return (
     <svg
       ref={svgRef}
-      style={{ width: "100%", height: "100%", display: "block" }}
+      style={{ width: "100%", height: "100%", display: "block", padding: "20px 5px" }}
       preserveAspectRatio="xMidYMid meet"
     />
   );

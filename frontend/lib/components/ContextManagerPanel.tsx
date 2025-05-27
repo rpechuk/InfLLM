@@ -3,11 +3,11 @@
 import React, { useState, useEffect } from "react";
 import { X, Eye, EyeOff, Zap, ZapOff, Bug, BugOff } from "lucide-react";
 import Pane from "./Pane";
-import { getLayerContext, getBlockContext } from "@/api/context";
+import { getLayerContext, getBlockContext, getBlockContent } from "@/api/context";
 import WordCloud from "./WordCloud";
 import WordScores from "./WordScores";
 import { preprocess } from "@/api/preprocess";
-import { WordScore } from "@/types";
+import { WordScore, BlockData } from "@/types";
 
 const NUM_LAYERS = 39;
 const PLACEHOLDER_WORDCLOUD = "Select a block to view word analysis";
@@ -132,6 +132,17 @@ export default function ContextManagerPanel({ refreshSignal = 0 }: { refreshSign
     setLayer(newLayer);
   };
 
+  const handleDragStart = (e: React.DragEvent<HTMLButtonElement>, blockIdx: number) => {
+    // Use a simple string format that's more reliable
+    const dragData = `BLOCK:${layer}:${blockIdx}`;
+    
+    // Set multiple data types to ensure compatibility
+    e.dataTransfer.setData("text/plain", dragData);
+    e.dataTransfer.setData("text", dragData);
+    e.dataTransfer.setData("Text", dragData);
+    e.dataTransfer.effectAllowed = "copy";
+  };
+
   let words: WordScore[] = blockDetails?.tokens.map((text: string, i: number) => ({
     text,
     value: blockDetails?.representation_score[i] || 1
@@ -173,50 +184,49 @@ export default function ContextManagerPanel({ refreshSignal = 0 }: { refreshSign
                   inactiveText="Clean Off"
                   icon={shouldPreprocess ? <Zap size={14} /> : <ZapOff size={14} />}
                 />
-                <ToggleButton
+                {/* <ToggleButton
                   active={debugMode}
                   onClick={() => setDebugMode(!debugMode)}
                   activeText="Debug On"
                   inactiveText="Debug Off"
                   icon={debugMode ? <Bug size={14} /> : <BugOff size={14} />}
-                />
-              </div>
-            </div>
-
-            {/* Status Indicators */}
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center space-x-3">
-                <div className={`
-                    px-4 py-2 rounded-lg font-mono text-sm font-medium border backdrop-blur-sm
-                    ${selected.layer !== null
-                    ? 'bg-blue-500/20 border-blue-400/40 text-blue-200'
-                    : 'bg-gray-500/20 border-gray-400/40 text-gray-400'
-                  }
-                  `}>
-                  {selected.layer !== null ? `Layer ${selected.layer + 1}` : "No Layer"}
+                /> */}
+                <div className="flex flex-col items-end">
+                  <div className={`
+                      w-16 h-8 flex items-center justify-center rounded-lg font-mono text-xs font-medium border backdrop-blur-sm
+                      ${selected.layer !== null
+                      ? 'bg-blue-500/20 border-blue-400/40 text-blue-200'
+                      : 'bg-gray-500/20 border-gray-400/40 text-gray-400'
+                    }
+                    `}>
+                    {selected.layer !== null ? `Layer ${selected.layer + 1}` : "--"}
+                  </div>
                 </div>
 
-                {selected.block !== null ? (
-                  <div className={`
-                      px-4 py-2 rounded-lg font-mono text-sm font-medium border backdrop-blur-sm
-                      bg-gradient-to-r text-white shadow-sm
-                      ${blockColors[selected.block % blockColors.length]}
-                      ${borderColors[selected.block % borderColors.length]}/40 border
-                    `}>
-                    Block {selected.block + 1}
-                  </div>
-                ) : (
-                  <div className="px-4 py-2 rounded-lg font-mono text-sm font-medium border backdrop-blur-sm bg-gray-500/20 border-gray-400/40 text-gray-400">
-                    No Block
-                  </div>
-                )}
+                <div className="flex flex-col items-end">
+                  {selected.block !== null ? (
+                    <div className={`
+                        w-16 h-8 flex items-center justify-center rounded-lg font-mono text-xs font-medium border backdrop-blur-sm
+                        bg-gradient-to-r text-white shadow-sm
+                        ${blockColors[selected.block % blockColors.length]}
+                        ${borderColors[selected.block % borderColors.length]}/40 border
+                      `}>
+                      Block {selected.block + 1}
+                    </div>
+                  ) : (
+                    <div className="w-16 h-8 flex items-center justify-center rounded-lg font-mono text-xs font-medium border backdrop-blur-sm bg-gray-500/20 border-gray-400/40 text-gray-400">
+                      --
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
+
           </div>
 
           {/* Content Area */}
           <div className="flex-1 min-h-0 rounded-xl border border-white/10 bg-black/20 backdrop-blur-sm">
-            <div className="h-full flex items-center justify-center p-6">
+            <div className="h-full flex items-center justify-center">
               {debugMode || hasValidData ? (
                 <div className="w-full h-full flex items-center justify-center">
                   {showWordCloud ? (
@@ -264,31 +274,27 @@ export default function ContextManagerPanel({ refreshSignal = 0 }: { refreshSign
           <div className="flex-1 min-h-0 mb-6">
             <div className="h-full overflow-auto">
               {blockIndices.length > 0 ? (
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-3">
+                <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 p-2">
                   {blockIndices.map((idx) => (
                     <button
                       key={idx}
+                      draggable={true}
                       className={`
                           group relative overflow-hidden rounded-xl p-4 text-white font-mono text-sm 
                           transition-all duration-200 border-2 backdrop-blur-sm shadow-lg
-                          bg-gradient-to-br hover:scale-105 active:scale-95
+                          bg-gradient-to-br hover:scale-105 active:scale-95 cursor-grab active:cursor-grabbing
                           ${blockColors[idx % blockColors.length]}
                           ${(selected.layer === layer && selected.block === idx)
-                          ? `${borderColors[idx % borderColors.length]} shadow-lg`
-                          : 'border-transparent hover:border-white/20'
+                          ? `border-white shadow-lg bg-white/10 backdrop-blur-sm !shadow-[0_0_8px_rgba(200,200,200,0.6)]`
+                          : `${borderColors[idx % borderColors.length]} hover:border-white/80`
                         }
                         `}
                       onClick={() => handleBlockSelect(idx)}
+                      onDragStart={(e) => handleDragStart(e, idx)}
                     >
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-center w-full h-full">
                         <span className="font-semibold">Block {idx + 1}</span>
-                        <X size={14} className="opacity-60 group-hover:opacity-80 transition-opacity" />
                       </div>
-
-                      {/* Selection indicator */}
-                      {(selected.layer === layer && selected.block === idx) && (
-                        <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
-                      )}
                     </button>
                   ))}
                 </div>

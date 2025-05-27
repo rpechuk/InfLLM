@@ -11,4 +11,10 @@ export async function getBlockContext(layer: number, block: number) {
     const res = await fetch(`${CONTEXT_API_URL}/block/${layer}/${block}`);
     if (!res.ok) throw new Error(`Failed to fetch block context for layer ${layer}, block ${block}`);
     return res.json();
+}
+
+export async function getBlockContent(layer: number, block: number) {
+    const res = await fetch(`${CONTEXT_API_URL}/block/${layer}/${block}/content`);
+    if (!res.ok) throw new Error(`Failed to fetch block content for layer ${layer}, block ${block}`);
+    return res.json();
 } 

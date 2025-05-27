@@ -4,7 +4,7 @@ model:
   block_size: 128
   n_init: 128
   n_local: 512
-  topk: 16
+  topk: 8
   repr_topk: 4
   max_cached_block: 32
   exc_block_size: 512

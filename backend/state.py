@@ -8,3 +8,5 @@ conv_template_name = None  # Conversation template name (optional)
 _conversation = None # in-memory conversation (for demo; not thread-safe for production)
 
 config = None # config for the model
+
+_last_used_blocks = [] # List of (layer, block) tuples used in the last generation

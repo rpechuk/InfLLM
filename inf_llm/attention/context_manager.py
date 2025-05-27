@@ -246,6 +246,13 @@ class ContextManager:
         self.perhead = perhead
         self._listeners: list[GlobalCacheListener] = listeners or []
 
+        # Forced blocks support
+        self.forced_blocks = None  # List of block IDs to force
+        self.used_blocks_this_generation = []  # Track blocks used in current generation
+        
+        # Track absolute position offset for blocks
+        self.absolute_position_offset = 0
+
         global GLOBAL_STREAM
         if self.async_global_stream and GLOBAL_STREAM is None:
             GLOBAL_STREAM = torch.cuda.Stream()
@@ -258,8 +265,6 @@ class ContextManager:
         else:
             self.calc_block_score = False
 
-        self._listeners: list[GlobalCacheListener] = listeners or []
-
     def clear(self):
         self.global_blocks = [[] for _ in range(self.num_units)]
         self.cached_blocks = [{} for _ in range(self.num_units)]
@@ -267,6 +272,23 @@ class ContextManager:
         self.length = 0
         self.load_count = 0
         self.initialized = False
+        self.forced_blocks = None
+        self.used_blocks_this_generation = []
+        self.absolute_position_offset = 0
+
+    def set_forced_blocks(self, forced_blocks):
+        """Set blocks that should be forced to be used in the next generation."""
+        self.forced_blocks = forced_blocks
+        self.used_blocks_this_generation = []
+
+    def clear_forced_blocks(self):
+        """Clear forced blocks after generation is complete."""
+        self.forced_blocks = None
+        self.used_blocks_this_generation = []
+
+    def get_used_blocks(self):
+        """Get the list of blocks used in the current generation."""
+        return self.used_blocks_this_generation.copy()
 
     def _emit(self, event: str, **kw) -> None:
         for cb in self._listeners:
@@ -402,14 +424,46 @@ class ContextManager:
     ):
         if not self._use_chunk_topk:
             if self.num_global_block <= self.topk:
-                return [list(range(len(self.global_blocks[0]))) for _ in range(self.num_units)]
+                all_blocks = [list(range(len(self.global_blocks[0]))) for _ in range(self.num_units)]
+                # Track used blocks
+                for u in range(self.num_units):
+                    self.used_blocks_this_generation.extend(all_blocks[u])
+                return all_blocks
 
             global_h_q = global_h_q.mean(dim=2, keepdim=False)
             assert global_h_q.shape == (self.num_units, self.unit_size, self.dim_head)
             global_h_q = global_h_q.reshape(self.num_units, self.dim_head * self.unit_size)
             ret = []
             for u in range(self.num_units):
-                ret.append(self.block_k[u].get_topk(global_h_q[u], self.topk))
+                if self.forced_blocks is not None:
+                    # Get forced blocks for this unit
+                    forced_for_unit = [block['block'] for block in self.forced_blocks if block.get('layer') == u]
+                    # Ensure forced blocks are valid
+                    forced_for_unit = [b for b in forced_for_unit if 0 <= b < len(self.global_blocks[u])]
+                    
+                    if forced_for_unit:
+                        # Calculate remaining topk slots after forced blocks
+                        remaining_topk = max(0, self.topk - len(forced_for_unit))
+                        
+                        if remaining_topk > 0:
+                            # Get regular topk blocks, excluding forced ones
+                            all_topk = self.block_k[u].get_topk(global_h_q[u], self.topk + len(forced_for_unit))
+                            regular_blocks = [b for b in all_topk if b not in forced_for_unit][:remaining_topk]
+                            selected_blocks = forced_for_unit + regular_blocks
+                        else:
+                            # Only use forced blocks (truncate if too many)
+                            selected_blocks = forced_for_unit[:self.topk]
+                    else:
+                        # No forced blocks for this unit, use regular selection
+                        selected_blocks = self.block_k[u].get_topk(global_h_q[u], self.topk)
+                else:
+                    # No forced blocks, use regular selection
+                    selected_blocks = self.block_k[u].get_topk(global_h_q[u], self.topk)
+                
+                ret.append(selected_blocks)
+                # Track used blocks
+                self.used_blocks_this_generation.extend(selected_blocks)
+                
                 self._emit(
                     'topk',
                     unit_id=u,
@@ -417,7 +471,12 @@ class ContextManager:
                 )
 
         else:
-            return self._cached_topk[self._topk_cur]
+            cached_result = self._cached_topk[self._topk_cur]
+            # Track used blocks from cached result
+            for u in range(self.num_units):
+                if u < len(cached_result):
+                    self.used_blocks_this_generation.extend(cached_result[u])
+            return cached_result
 
         return ret
 
@@ -598,9 +657,11 @@ class ContextManager:
         ret = []
         if self.num_global_block <= self.topk:
             for _ in range(exc_num):
-                ret.append(
-                    [list(range(len(self.global_blocks[0]))) for _ in range(self.num_units)]
-                )
+                all_blocks = [list(range(len(self.global_blocks[0]))) for _ in range(self.num_units)]
+                ret.append(all_blocks)
+                # Track used blocks
+                for u in range(self.num_units):
+                    self.used_blocks_this_generation.extend(all_blocks[u])
                 self._emit(
                     'topk',
                     unit_id=0,
@@ -619,7 +680,53 @@ class ContextManager:
         block_k = torch.cat([self.block_k[u].get_data()[None, :, :] for u in range(self.num_units)], dim=0)
         assert block_k.shape == (self.num_units, self.num_global_block, self.dim_head * self.unit_size)
         block_k = block_k.reshape(self.num_units, self.num_global_block, self.unit_size, self.dim_head).permute(0, 2, 1, 3).contiguous()
+        
+        # Ensure block_k is on the same device as global_h_q
+        if block_k.device != global_h_q.device:
+            block_k = block_k.to(global_h_q.device)
 
+        def apply_forced_blocks_to_indices(indices_tensor, block_idx):
+            """Apply forced blocks logic to computed indices for a specific block."""
+            result = []
+            for u in range(self.num_units):
+                if self.forced_blocks is not None:
+                    # Get forced blocks for this unit
+                    forced_for_unit = [block['block'] for block in self.forced_blocks if block.get('layer') == u]
+                    # Ensure forced blocks are valid
+                    forced_for_unit = [b for b in forced_for_unit if 0 <= b < self.num_global_block]
+                    
+                    if forced_for_unit:
+                        # Calculate remaining topk slots after forced blocks
+                        remaining_topk = max(0, self.topk - len(forced_for_unit))
+                        
+                        if remaining_topk > 0:
+                            # Get regular topk blocks from computed indices, excluding forced ones
+                            regular_indices = indices_tensor[u, block_idx].tolist()
+                            regular_blocks = [b for b in regular_indices if b not in forced_for_unit][:remaining_topk]
+                            selected_blocks = forced_for_unit + regular_blocks
+                        else:
+                            # Only use forced blocks (truncate if too many)
+                            selected_blocks = forced_for_unit[:self.topk]
+                    else:
+                        # No forced blocks for this unit, use regular selection
+                        selected_blocks = indices_tensor[u, block_idx].tolist()
+                else:
+                    # No forced blocks, use regular selection
+                    selected_blocks = indices_tensor[u, block_idx].tolist()
+                
+                # Ensure we have exactly topk blocks
+                while len(selected_blocks) < self.topk and len(selected_blocks) < self.num_global_block:
+                    # Fill with additional blocks if needed
+                    for candidate in range(self.num_global_block):
+                        if candidate not in selected_blocks:
+                            selected_blocks.append(candidate)
+                            break
+                
+                result.append(selected_blocks[:self.topk])
+                # Track used blocks
+                self.used_blocks_this_generation.extend(selected_blocks[:self.topk])
+            
+            return result
 
         if exc_block_num > 0:
             tmp_global_h_q = global_h_q[:, :, :exc_block_num * self.exc_block_size, :].reshape(
@@ -633,11 +740,7 @@ class ContextManager:
 
             indices = block_score.topk(self.topk, dim=-1).indices.cpu()
             for b in range(exc_block_num):
-                tmp = []
-                for u in range(self.num_units):
-                    tmp.append(indices[u, b].tolist())
-                    assert len(tmp[-1]) == self.topk
-                
+                tmp = apply_forced_blocks_to_indices(indices, b)
                 ret.append(tmp)
 
         if exc_block_num != exc_num: 
@@ -652,10 +755,46 @@ class ContextManager:
             block_score = block_score.squeeze(dim=2).mean(dim=1)
             assert block_score.shape == (self.num_units, self.num_global_block)
             indices = block_score.topk(self.topk, dim=-1).indices.cpu()
+            
+            # Apply forced blocks logic for the final block
             tmp = []
             for u in range(self.num_units):
-                tmp.append(indices[u].tolist())
-                assert len(tmp[-1]) == self.topk
+                if self.forced_blocks is not None:
+                    # Get forced blocks for this unit
+                    forced_for_unit = [block['block'] for block in self.forced_blocks if block.get('layer') == u]
+                    # Ensure forced blocks are valid
+                    forced_for_unit = [b for b in forced_for_unit if 0 <= b < self.num_global_block]
+                    
+                    if forced_for_unit:
+                        # Calculate remaining topk slots after forced blocks
+                        remaining_topk = max(0, self.topk - len(forced_for_unit))
+                        
+                        if remaining_topk > 0:
+                            # Get regular topk blocks from computed indices, excluding forced ones
+                            regular_indices = indices[u].tolist()
+                            regular_blocks = [b for b in regular_indices if b not in forced_for_unit][:remaining_topk]
+                            selected_blocks = forced_for_unit + regular_blocks
+                        else:
+                            # Only use forced blocks (truncate if too many)
+                            selected_blocks = forced_for_unit[:self.topk]
+                    else:
+                        # No forced blocks for this unit, use regular selection
+                        selected_blocks = indices[u].tolist()
+                else:
+                    # No forced blocks, use regular selection
+                    selected_blocks = indices[u].tolist()
+                
+                # Ensure we have exactly topk blocks
+                while len(selected_blocks) < self.topk and len(selected_blocks) < self.num_global_block:
+                    # Fill with additional blocks if needed
+                    for candidate in range(self.num_global_block):
+                        if candidate not in selected_blocks:
+                            selected_blocks.append(candidate)
+                            break
+                
+                tmp.append(selected_blocks[:self.topk])
+                # Track used blocks
+                self.used_blocks_this_generation.extend(selected_blocks[:self.topk])
 
             ret.append(tmp)
 
@@ -703,6 +842,12 @@ class ContextManager:
 
         while global_remainder_len - self.block_size >= self.n_local:
             global_remainder_len -= self.block_size
+            
+            # Calculate absolute position in the full input sequence
+            # Use the absolute position offset plus the relative position in the global remainder
+            absolute_block_start = self.absolute_position_offset + global_remainder_st
+            absolute_block_end = absolute_block_start + self.block_size
+            
             for u in range(self.num_units):
                 self.global_blocks[u].append(
                     MemoryUnit(
@@ -714,8 +859,8 @@ class ContextManager:
                         False,
                         self.pin_memory,
                         scores=self.global_remainder_local_score[u, :, global_remainder_st:global_remainder_st + self.block_size],
-                        block_start=global_remainder_st,
-                        block_end=global_remainder_st + self.block_size
+                        block_start=absolute_block_start,
+                        block_end=absolute_block_end
                     )
                 )
 
@@ -731,16 +876,13 @@ class ContextManager:
             self.num_global_block += 1
             for u in range(self.num_units):
                 self.block_k[u].append(global_block_k[u])
-                # get the indexs in k/v that are used in the block
-                block_start = global_remainder_st
-                block_end = global_remainder_st + self.block_size
 
                 self._emit(
                     'add',
                     unit_id=u,
                     block_id=self.num_global_block,
-                    block_start=block_start,
-                    block_end=block_end
+                    block_start=absolute_block_start,
+                    block_end=absolute_block_end
                 )
             global_remainder_st += self.block_size
 
@@ -868,6 +1010,9 @@ class ContextManager:
 
         assert self._global_remainder_ed == self.global_remainder[0].size(-2)
         with torch.cuda.stream(GLOBAL_STREAM):
+            # Update absolute position offset when trimming global remainder
+            self.absolute_position_offset += self._global_remainder_st
+            
             self.global_remainder = (
                 self.global_remainder[0][:, :, self._global_remainder_st:, :],
                 self.global_remainder[1][:, :, self._global_remainder_st:, :]

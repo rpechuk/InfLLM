@@ -1,15 +1,40 @@
 const CHAT_API_URL = process.env.NEXT_PUBLIC_CHAT_API_URL || "http://localhost:8000/chat";
 const MODEL_API_URL = process.env.NEXT_PUBLIC_MODEL_API_URL || "http://localhost:8000/model";
 const NEW_CHAT_API_URL = process.env.NEXT_PUBLIC_NEW_CHAT_API_URL || "http://localhost:8000/new_chat";
+const USED_BLOCKS_API_URL = process.env.NEXT_PUBLIC_USED_BLOCKS_API_URL || "http://localhost:8000/used_blocks";
+
+// Types
+export interface Message {
+  role: "user" | "model";
+  content: string;
+  files?: { name: string }[];
+  usedBlocks?: Array<[number, number]>; // Array of [layer, block] tuples
+}
+
+export interface UploadedFile {
+  name: string;
+  content: string;
+  isBlock?: boolean;
+  blockId?: { layer: number; block: number };
+}
+
+export interface BlockId {
+  layer: number;
+  block: number;
+}
 
 export async function streamChatResponse(
   message: string,
+  forcedBlocks: BlockId[] = [],
   onToken: (token: string) => void,
 ): Promise<void> {
   const response = await fetch(CHAT_API_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message }),
+    body: JSON.stringify({
+      message,
+      forced_blocks: forcedBlocks
+    }),
   });
   if (!response.body) throw new Error("No response body");
   const reader = response.body.getReader();
@@ -31,24 +56,21 @@ export async function createNewChat(): Promise<void> {
   }
 }
 
+export async function getUsedBlocks(): Promise<Array<[number, number]>> {
+  const response = await fetch("http://localhost:8000/used_blocks");
+  if (!response.ok) {
+    throw new Error("Failed to get used blocks");
+  }
+  const data = await response.json();
+  return data.used_blocks || [];
+}
+
 export async function checkModelReady(): Promise<any> {
   const response = await fetch(MODEL_API_URL);
   if (!response.ok) {
     throw new Error("Model not ready");
   }
   return response.json();
-}
-
-// Types
-export interface Message {
-  role: "user" | "model";
-  content: string;
-  files?: { name: string }[];
-}
-
-export interface UploadedFile {
-  name: string;
-  content: string;
 }
 
 // Polling for model readiness
@@ -115,16 +137,25 @@ export async function readTextFiles(files: File[]): Promise<UploadedFile[]> {
   return Promise.all(readPromises);
 }
 
-// Message formatting
+// Message formatting - now only for regular files, blocks are handled via forced_blocks
 export function formatInputWithFiles(input: string, files: UploadedFile[]): string {
-  if (files.length === 0) return input;
+  // Only include non-block files in the text formatting
+  const regularFiles = files.filter(f => !f.isBlock);
+  if (regularFiles.length === 0) return input;
   return (
     `# File Context:\n` +
-    files
+    regularFiles
       .map((f) => `${f.name}\n\u0060\u0060\u0060\n${f.content}\n\u0060\u0060\u0060`)
       .join("\n") +
     `\n---\n# User Message:\n${input}`
   );
+}
+
+// Extract block IDs from uploaded files
+export function extractBlockIds(files: UploadedFile[]): BlockId[] {
+  return files
+    .filter(f => f.isBlock && f.blockId)
+    .map(f => f.blockId!);
 }
 
 // Simulate model reply for debug mode

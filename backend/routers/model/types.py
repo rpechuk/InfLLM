@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 class ModelInfoResponse(BaseModel):
     """Response body for /model endpoint."""
@@ -14,6 +14,11 @@ class ModelInfoResponse(BaseModel):
     tokenizer_model_max_length: int
     special_tokens: Dict[str, Any]
 
+class BlockId(BaseModel):
+    """Represents a block identifier."""
+    layer: int
+    block: int
+
 class ChatRequest(BaseModel):
     """Request body for /chat endpoint."""
     message: str
@@ -22,3 +27,4 @@ class ChatRequest(BaseModel):
     max_new_tokens: Optional[int] = 256
     top_k: Optional[int] = -1
     top_p: Optional[float] = 1.0
+    forced_blocks: Optional[List[BlockId]] = []

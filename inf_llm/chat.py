@@ -17,7 +17,7 @@ import math
 import os
 import sys
 import time
-from typing import Iterable, Optional, Dict
+from typing import Iterable, Optional, Dict, List
 import warnings
 import torch
 import argparse
@@ -54,6 +54,7 @@ def generate_stream(
     stream_interval: int = 2,
     judge_sent_end: bool = False,
     clear_kv_cache: bool = True,
+    forced_blocks: Optional[List[Dict]] = None,
 ):
     if hasattr(model, "device"):
         device = model.device
@@ -119,10 +120,18 @@ def generate_stream(
     else:
         start_ids = torch.as_tensor([input_ids], device=device)
 
+    # Set forced blocks for this generation if provided
+    if forced_blocks is not None and hasattr(model, 'model') and hasattr(model.model, 'layers'):
+        for layer in model.model.layers:
+            if hasattr(layer.self_attn, "_past_key_value") and layer.self_attn._past_key_value is not None:
+                layer.self_attn._past_key_value.set_forced_blocks(forced_blocks)
+
     token_logprobs = [None]  # The first token has no logprobs.
     sent_interrupt = False
     finish_reason = None
     stopped = False
+    used_blocks_per_layer = {}  # Track blocks used at each layer
+    
     for i in range(max_new_tokens):
         if i == 0:  # prefill
             out = model(input_ids=start_ids, use_cache=True, past_key_values=past_key_values)
@@ -151,6 +160,15 @@ def generate_stream(
             logits = out.logits
             past_key_values = out.past_key_values
 
+        # Collect used blocks information after each forward pass
+        if hasattr(model, 'model') and hasattr(model.model, 'layers'):
+            for layer_idx, layer in enumerate(model.model.layers):
+                if hasattr(layer.self_attn, "_past_key_value") and layer.self_attn._past_key_value is not None:
+                    if hasattr(layer.self_attn._past_key_value, "get_used_blocks"):
+                        used_blocks = layer.self_attn._past_key_value.get_used_blocks()
+                        if used_blocks:
+                            used_blocks_per_layer[layer_idx] = used_blocks
+
         if logits_processor:
             if repetition_penalty > 1.0:
                 tmp_output_ids = torch.as_tensor([output_ids], device=logits.device)
@@ -174,7 +192,7 @@ def generate_stream(
         token = tokens[0]
         output_ids.append(token)
         if logprobs is not None:
-            # Cannot use last_token_logits because logprobs is based on raw logits.
+            # Cannot use last_token_logits because logprobs is base
             token_logprobs.append(
                 torch.log_softmax(logits[0, -1, :], dim=-1)[token].tolist()
             )
@@ -265,6 +283,7 @@ def generate_stream(
                         "total_tokens": input_echo_len + i,
                     },
                     "finish_reason": None,
+                    "used_blocks": used_blocks_per_layer,
                 }
 
         if stopped:
@@ -277,6 +296,12 @@ def generate_stream(
     if stopped:
         finish_reason = "stop"
 
+    # Clear forced blocks after generation
+    if forced_blocks is not None and hasattr(model, 'model') and hasattr(model.model, 'layers'):
+        for layer in model.model.layers:
+            if hasattr(layer.self_attn, "_past_key_value") and layer.self_attn._past_key_value is not None:
+                layer.self_attn._past_key_value.clear_forced_blocks()
+
     yield {
         "text": output,
         "logprobs": ret_logprobs,
@@ -286,6 +311,7 @@ def generate_stream(
             "total_tokens": input_echo_len + i,
         },
         "finish_reason": finish_reason,
+        "used_blocks": used_blocks_per_layer,
     }
 
     # Clean
@@ -447,14 +473,14 @@ def chat_loop(
             else:
                 filename = args[1]
 
-            # Add .json if extension not present
-            if not "." in filename:
-                filename += ".json"
+                # Add .json if extension not present
+                if not "." in filename:
+                    filename += ".json"
 
-            print("saving...", filename)
-            with open(filename, "w") as outfile:
-                json.dump(conv.dict(), outfile)
-            continue
+                print("saving...", filename)
+                with open(filename, "w") as outfile:
+                    json.dump(conv.dict(), outfile)
+                continue
         elif inp.startswith("!!load"):
             args = inp.split(" ", 1)
 
@@ -464,26 +490,26 @@ def chat_loop(
             else:
                 filename = args[1]
 
-            # Check if file exists and add .json if needed
-            if not os.path.exists(filename):
-                if (not filename.endswith(".json")) and os.path.exists(
-                    filename + ".json"
-                ):
-                    filename += ".json"
-                else:
-                    print("file not found:", filename)
-                    continue
+                # Check if file exists and add .json if needed
+                if not os.path.exists(filename):
+                    if (not filename.endswith(".json")) and os.path.exists(
+                        filename + ".json"
+                    ):
+                        filename += ".json"
+                    else:
+                        print("file not found:", filename)
+                        continue
 
-            print("loading...", filename)
-            with open(filename, "r") as infile:
-                new_conv = json.load(infile)
+                print("loading...", filename)
+                with open(filename, "r") as infile:
+                    new_conv = json.load(infile)
 
-            conv = get_conv_template(new_conv["template_name"])
-            conv.set_system_message(new_conv["system_message"])
-            conv.messages = new_conv["messages"]
-            reload_conv(conv)
-            _clear_kv_cache = True
-            continue
+                conv = get_conv_template(new_conv["template_name"])
+                conv.set_system_message(new_conv["system_message"])
+                conv.messages = new_conv["messages"]
+                reload_conv(conv)
+                _clear_kv_cache = True
+                continue
 
         conv.append_message(conv.roles[0], inp)
         conv.append_message(conv.roles[1], None)
@@ -514,7 +540,8 @@ def chat_loop(
                 device,
                 context_len=context_len,
                 judge_sent_end=judge_sent_end,
-                clear_kv_cache=_clear_kv_cache
+                clear_kv_cache=_clear_kv_cache,
+                forced_blocks=None  # No forced blocks in interactive mode
             )
             t = time.time()
             outputs = chatio.stream_output(output_stream)

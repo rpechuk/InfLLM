@@ -71,8 +71,7 @@ def patch_hf(
         if input_ids is not None and inputs_embeds is not None:
             raise ValueError("You cannot specify both decoder_input_ids and decoder_inputs_embeds at the same time")
         elif input_ids is not None:
-            batch_size, seq_length = input_ids.shape
-            if hasattr(model, 'input_ids'):
+            if hasattr(model, 'input_ids') and model.input_ids is not None:
                 # append current input_ids to model.input_ids
                 model.input_ids = torch.cat([model.input_ids, input_ids], dim=1)
             else:

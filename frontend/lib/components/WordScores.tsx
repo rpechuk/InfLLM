@@ -22,7 +22,9 @@ const WordScores: React.FC<WordScoresProps> = ({
 
     d3.select(svgRef.current).selectAll("*").remove();
 
-    const margin = { top: 10, right: 50, bottom: 10, left: 120 };
+    const letterWidth = 10;
+    const maxLetterWord = sortedWords.reduce((max, word) => Math.max(max, word.text.length), 0)
+    const margin = { top: 10, right: 10, bottom: 10, left: letterWidth * maxLetterWord };
     const rowHeight = 32;
     const totalContentHeight = sortedWords.length * rowHeight + margin.top + margin.bottom;
 
@@ -56,7 +58,7 @@ const WordScores: React.FC<WordScoresProps> = ({
       .attr("y", d => y(d.text) || 0)
       .attr("height", y.bandwidth())
       .attr("x", 0)
-      .attr("width", svgRef.current.clientWidth)
+      .attr("width", svgRef.current.clientWidth - margin.left)
       .attr("fill", (d, i) => i % 2 === 0 ? "#2d3748" : "#1a202c")
       .attr("rx", 4);
 
@@ -99,22 +101,7 @@ const WordScores: React.FC<WordScoresProps> = ({
       .attr("fill", "#e2e8f0")
       .text(d => d.text.replaceAll(" ", "⎵"));
 
-
-    g.selectAll(".value-label")
-      .data(sortedWords)
-      .enter()
-      .append("text")
-      .attr("class", "value-label")
-      .attr("y", d => (y(d.text) || 0) + y.bandwidth() / 2)
-      .attr("x", d => x(d.value) + 5)
-      .attr("dominant-baseline", "middle")
-      .attr("font-family", "monospace")
-      .attr("font-size", "14px")
-      .attr("fill", "#e2e8f0")
-      .text(d => d.value.toFixed(3));
-
-
-    g.append("line")
+      g.append("line")
       .attr("x1", x(0.5))
       .attr("x2", x(0.5))
       .attr("y1", 0)
@@ -122,7 +109,19 @@ const WordScores: React.FC<WordScoresProps> = ({
       .attr("stroke", "#4a5568")
       .attr("stroke-dasharray", "4,4")
       .style("opacity", 0.5);
-
+      
+      g.selectAll(".value-label")
+        .data(sortedWords)
+        .enter()
+        .append("text")
+        .attr("class", "value-label")
+        .attr("y", d => (y(d.text) || 0) + y.bandwidth() / 2)
+        .attr("x", d => x(d.value) - (x(d.value) > 50 ? 45 : -5))
+        .attr("dominant-baseline", "middle")
+        .attr("font-family", "monospace")
+        .attr("font-size", "14px")
+        .attr("fill", "#e2e8f0")
+        .text(d => d.value.toFixed(3));
   }, [words]);
 
   return (

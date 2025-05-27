@@ -164,4 +164,4 @@ def get_used_blocks():
             return {"used_blocks": []}
     except Exception as e:
         print(f"[get_used_blocks] Error: {e}", file=sys.stderr)
-        return {"used_blocks": []} 
+        return {"used_blocks": []}

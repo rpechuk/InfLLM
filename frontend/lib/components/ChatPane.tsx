@@ -1,10 +1,50 @@
 "use client";
-import { useRef, useEffect } from "react";
-import { streamChatResponse, createNewChat, pollModelReady, readTextFiles, formatInputWithFiles, simulateModelReply, Message, UploadedFile } from "@/api/chat";
-import { FaPlus, FaSpinner, FaFileAlt } from "react-icons/fa";
+import { useRef, useEffect, useState } from "react";
+import { streamChatResponse, createNewChat, pollModelReady, readTextFiles, formatInputWithFiles, extractBlockIds, simulateModelReply, getUsedBlocks, Message, UploadedFile } from "@/api/chat";
+import { FaPlus, FaSpinner, FaFileAlt, FaChevronDown, FaChevronUp } from "react-icons/fa";
+import { FaFloppyDisk } from "react-icons/fa6";
 import FilePill from "./FilePill";
 import { useReducer } from "react";
 import MarkdownRenderer from "./MarkdownRenderer";
+
+// File content storage utilities
+const FILE_CONTENT_STORAGE_KEY = "chatFileContents";
+
+function storeFileContent(fileName: string, content: string): void {
+  try {
+    const stored = localStorage.getItem(FILE_CONTENT_STORAGE_KEY);
+    const fileContents = stored ? JSON.parse(stored) : {};
+    fileContents[fileName] = content;
+    localStorage.setItem(FILE_CONTENT_STORAGE_KEY, JSON.stringify(fileContents));
+  } catch (error) {
+    console.warn("Failed to store file content:", error);
+  }
+}
+
+function getFileContent(fileName: string): string | undefined {
+  try {
+    const stored = localStorage.getItem(FILE_CONTENT_STORAGE_KEY);
+    if (!stored) return undefined;
+    const fileContents = JSON.parse(stored);
+    return fileContents[fileName];
+  } catch (error) {
+    console.warn("Failed to retrieve file content:", error);
+    return undefined;
+  }
+}
+
+function clearOldFileContents(): void {
+  try {
+    // Clear file contents older than 24 hours to prevent localStorage bloat
+    const stored = localStorage.getItem(FILE_CONTENT_STORAGE_KEY);
+    if (stored) {
+      // For now, just clear all - in production you might want timestamp-based cleanup
+      localStorage.removeItem(FILE_CONTENT_STORAGE_KEY);
+    }
+  } catch (error) {
+    console.warn("Failed to clear old file contents:", error);
+  }
+}
 
 // ChatPane state and actions
 interface ChatPaneState {
@@ -26,6 +66,7 @@ type ChatPaneAction =
   | { type: "SET_MESSAGES"; messages: Message[] }
   | { type: "ADD_MESSAGE"; message: Message }
   | { type: "UPDATE_LAST_MODEL_MESSAGE"; content: string }
+  | { type: "UPDATE_LAST_MODEL_USED_BLOCKS"; usedBlocks: Array<[number, number]> }
   | { type: "SET_IS_LOADING"; value: boolean }
   | { type: "SET_IS_MODEL_READY"; value: boolean }
   | { type: "SET_ERROR"; error: string | null }
@@ -49,6 +90,19 @@ function chatPaneReducer(state: ChatPaneState, action: ChatPaneAction): ChatPane
       if (idx === -1) return state;
       const updated = [...state.messages];
       updated[idx] = { ...updated[idx], content: action.content };
+      return { ...state, messages: updated };
+    }
+    case "UPDATE_LAST_MODEL_USED_BLOCKS": {
+      console.log("UPDATE_LAST_MODEL_USED_BLOCKS action received with:", action.usedBlocks);
+      const idx = [...state.messages].map((m) => m.role).lastIndexOf("model");
+      console.log("Last model message index:", idx);
+      if (idx === -1) {
+        console.log("No model message found to update");
+        return state;
+      }
+      const updated = [...state.messages];
+      updated[idx] = { ...updated[idx], usedBlocks: action.usedBlocks };
+      console.log("Updated message:", updated[idx]);
       return { ...state, messages: updated };
     }
     case "SET_IS_LOADING":
@@ -126,6 +180,19 @@ function useChatPane() {
     if (!state.input.trim() || state.isLoading || state.isCheckingModel || state.isCreatingChat || !state.isModelReady) return;
     dispatch({ type: "SET_ERROR", error: null });
     const filesToSend = [...state.uploadedFiles];
+    
+    // Store file contents in localStorage for later retrieval by inline pills
+    filesToSend.forEach(file => {
+      storeFileContent(file.name, file.content);
+      if (file.isBlock) {
+        // Store block flag and ID separately
+        localStorage.setItem(`${file.name}_isBlock`, 'true');
+        if (file.blockId) {
+          localStorage.setItem(`${file.name}_blockId`, JSON.stringify(file.blockId));
+        }
+      }
+    });
+    
     dispatch({ type: "ADD_MESSAGE", message: { role: "user", content: state.input, files: filesToSend.map(f => ({ name: f.name })) } });
     dispatch({ type: "SET_INPUT", input: "" });
     dispatch({ type: "SET_UPLOADED_FILES", files: [] });
@@ -140,10 +207,32 @@ function useChatPane() {
     }
     let modelReply = "";
     try {
-      await streamChatResponse(formatInputWithFiles(state.input, filesToSend), (token) => {
+      // Extract block IDs and send them as forced blocks
+      const forcedBlocks = extractBlockIds(filesToSend);
+      await streamChatResponse(formatInputWithFiles(state.input, filesToSend), forcedBlocks, (token) => {
         modelReply += token;
         dispatch({ type: "UPDATE_LAST_MODEL_MESSAGE", content: modelReply });
       });
+      
+      setTimeout(async () => {
+        try {
+          console.log("Fetching used blocks...");
+          const usedBlocks = await getUsedBlocks();
+          console.log("Fetched used blocks:", usedBlocks);
+          console.log("Type of usedBlocks:", typeof usedBlocks);
+          console.log("Is array:", Array.isArray(usedBlocks));
+          
+          if (usedBlocks && Array.isArray(usedBlocks) && usedBlocks.length > 0) {
+            console.log("Updating message with used blocks");
+            // Update the last model message with used blocks
+            dispatch({ type: "UPDATE_LAST_MODEL_USED_BLOCKS", usedBlocks });
+          } else {
+            console.log("No used blocks returned from server or invalid format");
+          }
+        } catch (err) {
+          console.error("Failed to fetch used blocks:", err);
+        }
+      }, 10);
     } catch (err) {
       dispatch({ type: "ADD_MESSAGE", message: { role: "model", content: `[Error: ${err}]` } });
     } finally {
@@ -159,6 +248,8 @@ function useChatPane() {
     try {
       await createNewChat();
       dispatch({ type: "SET_MESSAGES", messages: [] });
+      // Clear old file contents when starting new chat
+      clearOldFileContents();
     } catch (err) {
       dispatch({ type: "SET_ERROR", error: "Failed to create new chat. Please try again." });
     } finally {
@@ -182,6 +273,56 @@ function useChatPane() {
     e.preventDefault();
     e.stopPropagation();
     dispatch({ type: "SET_IS_DRAG_ACTIVE", value: false });
+    
+    // Check if this is block data from the context manager
+    const dragData = e.dataTransfer.getData("text/plain") || e.dataTransfer.getData("text") || e.dataTransfer.getData("Text");
+    
+    if (dragData && dragData.startsWith("BLOCK:")) {
+      try {
+        // Parse the simple string format: "BLOCK:layer:block"
+        const parts = dragData.split(":");
+        if (parts.length === 3) {
+          const layer = parseInt(parts[1]);
+          const block = parseInt(parts[2]);
+          
+          // This is a block drop - fetch the content and create a "file"
+          dispatch({ type: "SET_IS_READING_FILES", value: true });
+          setLoading(true);
+          
+          try {
+            // Import the getBlockContent function
+            const { getBlockContent } = await import("@/api/context");
+            const blockContentResponse = await getBlockContent(layer, block);
+            
+            const blockFile: UploadedFile = {
+              name: `Block ${block + 1}`,
+              content: blockContentResponse.content,
+              isBlock: true,
+              blockId: { layer, block }
+            };
+            dispatch({ type: "SET_UPLOADED_FILES", files: [...state.uploadedFiles, blockFile] });
+          } catch (error) {
+            console.error("Failed to fetch block content:", error);
+            // Fallback with basic info
+            const blockFile: UploadedFile = {
+              name: `Block ${block + 1}`,
+              content: `Block ${block + 1} from Layer ${layer + 1}`,
+              isBlock: true,
+              blockId: { layer, block }
+            };
+            dispatch({ type: "SET_UPLOADED_FILES", files: [...state.uploadedFiles, blockFile] });
+          } finally {
+            dispatch({ type: "SET_IS_READING_FILES", value: false });
+            setLoading(false);
+          }
+          return;
+        }
+      } catch (err) {
+        console.warn("Failed to parse block data:", err);
+      }
+    }
+    
+    // Handle regular file drops
     dispatch({ type: "SET_IS_READING_FILES", value: true });
     setLoading(true);
     try {
@@ -205,6 +346,96 @@ function useChatPane() {
     handleDragLeave,
     handleDrop,
   };
+}
+
+// Component for displaying used blocks with layer selection
+function UsedBlocksDisplay({ usedBlocks }: { usedBlocks: Array<[number, number]> }) {
+  const [selectedLayer, setSelectedLayer] = useState<number>(0);
+  const [isExpanded, setIsExpanded] = useState(false);
+  
+  // Group blocks by layer
+  const blocksByLayer = usedBlocks.reduce((acc, [layer, block]) => {
+    if (!acc[layer]) acc[layer] = [];
+    acc[layer].push(block + 1);
+    return acc;
+  }, {} as Record<number, number[]>);
+
+  // sort all of the blocks in each layer by block id
+  for (const layer in blocksByLayer) {
+    blocksByLayer[layer].sort((a, b) => a - b);
+  }
+  
+  const layers = Object.keys(blocksByLayer).map(Number).sort((a, b) => a - b);
+  const totalBlocks = usedBlocks.length;
+  
+  return (
+    <div className="mt-4 p-3 bg-gray-800 rounded-lg border border-gray-700">
+      <div 
+        className="flex items-center justify-between cursor-pointer"
+        onClick={() => setIsExpanded(!isExpanded)}
+      >
+        <div className="flex items-center">
+          <FaFloppyDisk className="mr-2 text-green-400" />
+          <span className="text-sm font-semibold text-gray-300">
+            Memory Blocks Used ({totalBlocks} blocks across {layers.length} layers)
+          </span>
+        </div>
+        {isExpanded ? <FaChevronUp className="text-gray-400" /> : <FaChevronDown className="text-gray-400" />}
+      </div>
+      
+      {isExpanded && (
+        <div className="mt-3">
+          {/* Layer selector */}
+          <div className="mb-3">
+            <div className="flex flex-wrap gap-2">
+              {layers.map(layer => (
+                <button
+                  key={layer}
+                  onClick={() => setSelectedLayer(layer)}
+                  className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+                    selectedLayer === layer 
+                      ? 'bg-green-600 text-white' 
+                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                  }`}
+                >
+                  Layer {layer + 1} ({blocksByLayer[layer].length})
+                </button>
+              ))}
+            </div>
+          </div>
+          
+          {/* Blocks display */}
+          <div className="space-y-2">
+            <div className="border-l-2 border-green-500 pl-3">
+              <div className="text-xs text-green-300 font-medium mb-1">
+                Layer {selectedLayer + 1}:
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {blocksByLayer[selectedLayer].map(block => (
+                  <FilePill
+                    key={`${selectedLayer}-${block}`}
+                    name={`B${block}`}
+                    inline={true}
+                    iconType="floppy"
+                    fileContent={async () => {
+                      try {
+                        const { getBlockContent } = await import("@/api/context");
+                        const blockContentResponse = await getBlockContent(selectedLayer, block - 1);
+                        return blockContentResponse.content;
+                      } catch (error) {
+                        console.error('Error fetching block content:', error);
+                        return `Block ${block} from Layer ${selectedLayer}`;
+                      }
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function ChatPane({ onChatFinished }: { onChatFinished?: () => void } = {}) {
@@ -246,7 +477,7 @@ export default function ChatPane({ onChatFinished }: { onChatFinished?: () => vo
       {state.isDragActive && (
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black bg-opacity-70 rounded-lg pointer-events-none select-none">
           <FaFileAlt className="text-5xl text-blue-300 mb-4 drop-shadow-lg" />
-          <span className="text-2xl font-bold text-white">Drop your file here to add it as context</span>
+          <span className="text-2xl font-bold text-white">Drop your file or block here to add it as context</span>
           {state.isReadingFiles && (
             <span className="mt-4 flex items-center text-lg text-blue-200"><FaSpinner className="mr-2 animate-spin" /> Reading file(s)...</span>
           )}
@@ -261,6 +492,8 @@ export default function ChatPane({ onChatFinished }: { onChatFinished?: () => vo
                 name={file.name}
                 onRemove={() => dispatch({ type: "SET_UPLOADED_FILES", files: state.uploadedFiles.filter((_, i) => i !== idx) })}
                 inline={false}
+                fileContent={file.content}
+                iconType={file.isBlock ? 'floppy' : 'file'}
               />
             </span>
           ))}
@@ -318,7 +551,13 @@ export default function ChatPane({ onChatFinished }: { onChatFinished?: () => vo
                   {msg.files && msg.files.length > 0 && (
                     <span className="flex flex-wrap ml-2">
                       {msg.files.map((file, idx) => (
-                        <FilePill key={file.name + idx} name={file.name} inline />
+                        <FilePill 
+                          key={file.name + idx} 
+                          name={file.name} 
+                          inline 
+                          fileContent={getFileContent(file.name)}
+                          iconType={localStorage.getItem(`${file.name}_isBlock`) === 'true' ? 'floppy' : 'file'}
+                        />
                       ))}
                     </span>
                   )}
@@ -328,7 +567,12 @@ export default function ChatPane({ onChatFinished }: { onChatFinished?: () => vo
               )}
             </span>
             {msg.role === "model" ? (
-              <MarkdownRenderer>{msg.content}</MarkdownRenderer>
+              <>
+                <MarkdownRenderer>{msg.content}</MarkdownRenderer>
+                {msg.usedBlocks && msg.usedBlocks.length > 0 && (
+                  <UsedBlocksDisplay usedBlocks={msg.usedBlocks} />
+                )}
+              </>
             ) : (
               <span className="block font-mono text-base whitespace-pre-line text-blue-200">
                 {msg.content}

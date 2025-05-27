@@ -16,3 +16,10 @@ class BlockResponse(BaseModel):
     tokens: List[str]
     representation_score: List[float]
     error: Optional[str] = None
+
+class BlockContentResponse(BaseModel):
+    """Response body for /block/{layer}/{block}/content endpoint."""
+    layer: int
+    block: int
+    content: str
+    error: Optional[str] = None
